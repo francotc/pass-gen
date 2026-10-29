@@ -82,7 +82,7 @@ echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" > .dev.vars
 ```
 
 ```bash
-npm run dev          # build del front + wrangler dev en :8787
+npm run dev          # wrangler dev en :8787 (compila el front con build.command)
 ```
 
 ```bash

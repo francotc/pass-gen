@@ -6,6 +6,8 @@
   "compatibility_flags": ["nodejs_compat"],
   "routes": [{ "pattern": "pass.frant.dev", "custom_domain": true }],
   "workers_dev": false,
+  // Compila el front antes de deploy/dev (también en Workers Builds, que corre `wrangler deploy` directo)
+  "build": { "command": "npm run build:web" },
   "assets": {
     "directory": "dist/web/browser",
     "binding": "ASSETS",

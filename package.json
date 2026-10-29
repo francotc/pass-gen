@@ -5,8 +5,8 @@
   "scripts": {
     "build:web": "ng build",
     "dev:web": "ng serve",
-    "dev": "npm run build:web && wrangler dev",
-    "deploy": "npm run build:web && wrangler deploy",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.worker.json --noEmit",
     "pretest": "node -e \"require('fs').mkdirSync('dist/web/browser',{recursive:true})\""
