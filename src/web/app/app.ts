@@ -17,7 +17,7 @@ import { HlmToasterImports } from '@spartan-ng/helm/sonner';
           </span>
           <span class="font-semibold tracking-tight">Pass Gen</span>
         </div>
-        <nav class="flex gap-1 md:flex-col" aria-label="Principal">
+        <nav class="flex gap-1 md:flex-col" aria-label="Main">
           @for (item of nav; track item.path) {
             <a
               [routerLink]="item.path"
@@ -39,8 +39,8 @@ import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 })
 export class App {
   protected readonly nav = [
-    { path: '/pases', label: 'Pases', icon: 'lucideWallet' },
-    { path: '/plantillas', label: 'Plantillas', icon: 'lucideLayoutTemplate' },
-    { path: '/ajustes', label: 'Ajustes', icon: 'lucideSettings' },
+    { path: '/passes', label: 'Passes', icon: 'lucideWallet' },
+    { path: '/templates', label: 'Templates', icon: 'lucideLayoutTemplate' },
+    { path: '/settings', label: 'Settings', icon: 'lucideSettings' },
   ];
 }

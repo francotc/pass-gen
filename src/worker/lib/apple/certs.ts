@@ -15,7 +15,7 @@ export function parseP12(der: Uint8Array, password: string): { certPem: string; 
   const key =
     p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0]?.key ??
     p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag]?.[0]?.key;
-  if (!cert || !key) throw new Error('El .p12 no contiene certificado y clave privada');
+  if (!cert || !key) throw new Error('The .p12 does not contain a certificate and private key');
   return { certPem: forge.pki.certificateToPem(cert), keyPem: forge.pki.privateKeyToPem(key) };
 }
 

@@ -43,17 +43,17 @@ import { PassPreview } from '../../shared/pass-preview';
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
-        <a routerLink="/pases" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-          <ng-icon name="lucideArrowLeft" /> Pases
+        <a routerLink="/passes" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
+          <ng-icon name="lucideArrowLeft" /> Passes
         </a>
         <h1 class="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
-          {{ pass()?.holderName ?? 'Pase' }}
+          {{ pass()?.holderName ?? 'Pass' }}
           @if (pass()?.voided) {
-            <span hlmBadge variant="destructive">Anulado</span>
+            <span hlmBadge variant="destructive">Voided</span>
           }
         </h1>
         @if (pass(); as p) {
-          <p class="text-muted-foreground font-mono text-xs">{{ p.serial }} · actualizado {{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</p>
+          <p class="text-muted-foreground font-mono text-xs">{{ p.serial }} · updated {{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</p>
         }
       </div>
     </header>
@@ -63,12 +63,12 @@ import { PassPreview } from '../../shared/pass-preview';
         <div class="flex flex-col gap-6">
           <form hlmCard (ngSubmit)="save()">
             <div hlmCardHeader>
-              <h2 hlmCardTitle>Datos del pase</h2>
-              <p hlmCardDescription>Al guardar se actualiza en Google Wallet y se avisa a los iPhone que lo tengan instalado.</p>
+              <h2 hlmCardTitle>Pass details</h2>
+              <p hlmCardDescription>Saving updates Google Wallet and notifies every iPhone that has the pass installed.</p>
             </div>
             <div hlmCardContent class="flex flex-col gap-4">
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="holder">Nombre del titular</label>
+                <label hlmLabel for="holder">Holder name</label>
                 <input hlmInput id="holder" name="holder" required [(ngModel)]="holderName" />
               </div>
               @for (k of keys(); track k) {
@@ -79,47 +79,47 @@ import { PassPreview } from '../../shared/pass-preview';
               }
               <label class="flex items-center justify-between gap-3 text-sm" for="voided">
                 <span>
-                  <span class="font-medium">Anular pase</span>
-                  <span class="text-muted-foreground block text-xs">Lo marca como inválido en ambas wallets.</span>
+                  <span class="font-medium">Void pass</span>
+                  <span class="text-muted-foreground block text-xs">Marks it as invalid in both wallets.</span>
                 </span>
                 <hlm-switch id="voided" name="voided" [(ngModel)]="voided" />
               </label>
             </div>
             <div hlmCardFooter class="flex flex-wrap gap-2">
-              <button hlmBtn type="submit" [disabled]="busy()"><ng-icon name="lucideSave" /> {{ busy() ? 'Guardando…' : 'Guardar y actualizar' }}</button>
-              <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="resync()"><ng-icon name="lucideRefreshCw" /> Reintentar sincronización</button>
+              <button hlmBtn type="submit" [disabled]="busy()"><ng-icon name="lucideSave" /> {{ busy() ? 'Saving…' : 'Save and update' }}</button>
+              <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="resync()"><ng-icon name="lucideRefreshCw" /> Retry sync</button>
             </div>
           </form>
 
           <section hlmCard>
             <div hlmCardHeader>
-              <h2 hlmCardTitle>Entregar al titular</h2>
+              <h2 hlmCardTitle>Deliver to holder</h2>
             </div>
             <div hlmCardContent class="flex flex-col gap-5">
               <div class="flex flex-col gap-2">
                 <span class="text-sm font-medium">Apple Wallet</span>
                 <div class="flex flex-wrap gap-2">
-                  <a hlmBtn variant="outline" [href]="api.pkpassUrl(pass()!.serial)" download><ng-icon name="lucideDownload" /> Descargar .pkpass</a>
-                  <button hlmBtn variant="outline" type="button" (click)="copy(api.publicPkpassUrl(pass()!))"><ng-icon name="lucideCopy" /> Copiar link público</button>
+                  <a hlmBtn variant="outline" [href]="api.pkpassUrl(pass()!.serial)" download><ng-icon name="lucideDownload" /> Download .pkpass</a>
+                  <button hlmBtn variant="outline" type="button" (click)="copy(api.publicPkpassUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy public link</button>
                 </div>
               </div>
               <div class="flex flex-col gap-2">
                 <span class="flex items-center gap-2 text-sm font-medium">
                   Google Wallet
                   @if (pass()!.google.synced) {
-                    <span hlmBadge variant="secondary">Sincronizado</span>
+                    <span hlmBadge variant="secondary">Synced</span>
                   } @else if (pass()!.google.error) {
                     <span hlmBadge variant="destructive">Error</span>
                   } @else {
-                    <span hlmBadge variant="outline">Pendiente</span>
+                    <span hlmBadge variant="outline">Pending</span>
                   }
                 </span>
                 @if (pass()!.google.error) {
                   <p class="text-destructive text-xs">{{ pass()!.google.error }}</p>
                 }
                 <div class="flex flex-wrap gap-2">
-                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="openGoogle()"><ng-icon name="lucideExternalLink" /> Abrir link</button>
-                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="copyGoogle()"><ng-icon name="lucideCopy" /> Copiar link</button>
+                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="openGoogle()"><ng-icon name="lucideExternalLink" /> Open link</button>
+                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="copyGoogle()"><ng-icon name="lucideCopy" /> Copy link</button>
                 </div>
               </div>
             </div>
@@ -159,7 +159,7 @@ export class PassDetail implements OnInit {
       this.template.set(await this.api.template(p.templateId));
     } catch (e) {
       toast.error(errorMessage(e));
-      await this.router.navigate(['/pases']);
+      await this.router.navigate(['/passes']);
     }
   }
 
@@ -176,8 +176,8 @@ export class PassDetail implements OnInit {
       const res = await this.api.updatePass(this.serial(), { holderName: this.holderName, data: this.data, voided: this.voided });
       this.apply(res.pass);
       const msg = syncMessage(res.sync);
-      if (msg.ok) toast.success('Pase actualizado', { description: msg.text });
-      else toast.warning('Pase guardado con avisos', { description: msg.text });
+      if (msg.ok) toast.success('Pass updated', { description: msg.text });
+      else toast.warning('Pass saved with warnings', { description: msg.text });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -190,8 +190,8 @@ export class PassDetail implements OnInit {
     try {
       const msg = syncMessage(await this.api.syncPass(this.serial()));
       this.pass.set(await this.api.pass(this.serial()));
-      if (msg.ok) toast.success('Sincronizado', { description: msg.text });
-      else toast.warning('Sincronización con avisos', { description: msg.text });
+      if (msg.ok) toast.success('Synced', { description: msg.text });
+      else toast.warning('Synced with warnings', { description: msg.text });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -202,9 +202,9 @@ export class PassDetail implements OnInit {
   protected async copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success('Link copiado');
+      toast.success('Link copied');
     } catch {
-      toast.error('No se pudo copiar el link');
+      toast.error('Could not copy the link');
     }
   }
 

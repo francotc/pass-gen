@@ -20,8 +20,8 @@
   ],
   "vars": {
     // Opcional: validación extra del JWT de Cloudflare Access
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "ACCESS_TEAM_DOMAIN": "f12349.cloudflareaccess.com",
+    "ACCESS_AUD": "f23c354bfa1de1a100fbf34003de8d8a6822ba7cb97b5142ad4ccf3d0d1c537c"
   }
   // Secret requerido: npx wrangler secret put ENCRYPTION_KEY  (32 bytes en base64: openssl rand -base64 32)
 }

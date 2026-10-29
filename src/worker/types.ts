@@ -22,6 +22,22 @@ export interface Field {
   changeMessage?: string;
 }
 
+/**
+ * NFC: Apple Value Added Services (requiere un Pass Type ID con NFC habilitado por Apple)
+ * y Google Smart Tap (requiere Smart Tap habilitado para el issuer).
+ */
+export interface NfcSettings {
+  enabled: boolean;
+  /** Payload que recibe la terminal; admite {{placeholders}}. Apple acepta hasta 64 bytes. */
+  message: string;
+  /** Apple: X.509 SubjectPublicKeyInfo en base64 con la clave pública ECDH P-256 de la terminal. */
+  encryptionPublicKey?: string;
+  /** Apple: pedir Face ID / Touch ID / código antes de enviar el payload. */
+  requiresAuthentication?: boolean;
+}
+
+export const NFC_MAX_BYTES = 64;
+
 export interface Template {
   id: string;
   name: string;
@@ -38,6 +54,7 @@ export interface Template {
   auxiliaryFields: Field[];
   backFields: Field[];
   google: { programName?: string; issuerName?: string };
+  nfc: NfcSettings;
   createdAt: string;
   updatedAt: string;
 }

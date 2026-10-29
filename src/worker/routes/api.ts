@@ -47,7 +47,7 @@ api.use('*', accessGuard);
 api.onError((err, c) => {
   if (err instanceof ValidationError) return c.json({ error: err.message }, 400);
   console.error(err);
-  return c.json({ error: 'Error interno', detail: err.message }, 500);
+  return c.json({ error: 'Internal error', detail: err.message }, 500);
 });
 
 api.get('/health', (c) => c.json({ ok: true }));
@@ -96,7 +96,7 @@ api.put('/settings/apple', async (c) => {
     const wwdr = await fileBytes(form.wwdr);
     if (wwdr) next.wwdrPem = certToPem(wwdr);
   } catch (e) {
-    throw new ValidationError(`No se pudo leer el certificado: ${e instanceof Error ? e.message : e}`);
+    throw new ValidationError(`Could not read the certificate: ${e instanceof Error ? e.message : e}`);
   }
   const apnsKey = await fileBytes(form.apnsKey);
   if (apnsKey) next.apnsKeyPem = new TextDecoder().decode(apnsKey);
@@ -107,8 +107,8 @@ api.put('/settings/apple', async (c) => {
   next.passTypeId = text(form.passTypeId) || next.passTypeId || fromCert.passTypeId;
 
   const missing = (['teamId', 'passTypeId', 'certPem', 'keyPem', 'wwdrPem'] as const).filter((k) => !next[k]);
-  if (missing.length) throw new ValidationError(`Faltan datos de Apple: ${missing.join(', ')}`);
-  if (next.apnsKeyPem && !next.apnsKeyPem.includes('PRIVATE KEY')) throw new ValidationError('La clave .p8 no es válida');
+  if (missing.length) throw new ValidationError(`Missing Apple settings: ${missing.join(', ')}`);
+  if (next.apnsKeyPem && !next.apnsKeyPem.includes('PRIVATE KEY')) throw new ValidationError('Invalid .p8 key');
 
   await s.putAppleSettings(next as AppleSettings);
   return c.json({ ok: true });
@@ -123,7 +123,7 @@ api.put('/settings/google', async (c) => {
     try {
       sa = JSON.parse(sa);
     } catch {
-      throw new ValidationError('El service account no es JSON válido');
+      throw new ValidationError('The service account is not valid JSON');
     }
   }
   const { client_email, private_key } = (sa ?? {}) as { client_email?: string; private_key?: string };
@@ -133,8 +133,8 @@ api.put('/settings/google', async (c) => {
     clientEmail: client_email || prev?.clientEmail || '',
     privateKey: private_key || prev?.privateKey || '',
   };
-  if (!/^\d+$/.test(next.issuerId)) throw new ValidationError('Issuer ID inválido');
-  if (!next.clientEmail || !next.privateKey.includes('PRIVATE KEY')) throw new ValidationError('Service account incompleto');
+  if (!/^\d+$/.test(next.issuerId)) throw new ValidationError('Invalid issuer ID');
+  if (!next.clientEmail || !next.privateKey.includes('PRIVATE KEY')) throw new ValidationError('Incomplete service account');
   await store(c).putGoogleSettings(next);
   return c.json({ ok: true });
 });
@@ -144,16 +144,16 @@ api.put('/settings/google', async (c) => {
 api.post('/images', async (c) => {
   const form = await c.req.parseBody();
   const bytes = await fileBytes(form.file);
-  if (!bytes) throw new ValidationError('Falta el archivo');
-  if (bytes.length > MAX_IMAGE) throw new ValidationError('La imagen supera 2 MB');
-  if (!PNG_SIG.every((b, i) => bytes[i] === b)) throw new ValidationError('Solo se aceptan PNG');
+  if (!bytes) throw new ValidationError('File is required');
+  if (bytes.length > MAX_IMAGE) throw new ValidationError('Image exceeds 2 MB');
+  if (!PNG_SIG.every((b, i) => bytes[i] === b)) throw new ValidationError('Only PNG images are accepted');
   const meta = await store(c).putImage(randomToken(12), bytes, 'image/png');
   return c.json(meta, 201);
 });
 
 api.get('/images/:id', async (c) => {
   const img = await store(c).getImage(c.req.param('id'));
-  if (!img) return c.json({ error: 'No encontrada' }, 404);
+  if (!img) return c.json({ error: 'Not found' }, 404);
   return c.body(img.bytes, 200, { 'content-type': img.meta.contentType, 'cache-control': 'private, max-age=86400' });
 });
 
@@ -171,13 +171,13 @@ api.post('/templates', async (c) => {
 
 api.get('/templates/:id', async (c) => {
   const t = await store(c).getTemplate(c.req.param('id'));
-  return t ? c.json(t) : c.json({ error: 'No encontrada' }, 404);
+  return t ? c.json(t) : c.json({ error: 'Not found' }, 404);
 });
 
 api.put('/templates/:id', async (c) => {
   const s = store(c);
   const prev = await s.getTemplate(c.req.param('id'));
-  if (!prev) return c.json({ error: 'No encontrada' }, 404);
+  if (!prev) return c.json({ error: 'Not found' }, 404);
   const t: Template = { ...parseTemplateInput(await c.req.json()), id: prev.id, kind: prev.kind, createdAt: prev.createdAt, updatedAt: new Date().toISOString() };
   await s.putTemplate(t);
   return c.json(t);
@@ -187,7 +187,7 @@ api.delete('/templates/:id', async (c) => {
   const s = store(c);
   const id = c.req.param('id');
   if ((await s.listPasses()).some((p) => p.templateId === id)) {
-    return c.json({ error: 'La plantilla tiene pases emitidos' }, 409);
+    return c.json({ error: 'The template has issued passes' }, 409);
   }
   await s.deleteTemplate(id);
   return c.json({ ok: true });
@@ -203,7 +203,7 @@ api.get('/passes', async (c) => c.json(await store(c).listPasses()));
 api.post('/passes', async (c) => {
   const s = store(c);
   const input = parsePassInput(await c.req.json());
-  if (!(await s.getTemplate(input.templateId))) throw new ValidationError('La plantilla no existe');
+  if (!(await s.getTemplate(input.templateId))) throw new ValidationError('Template not found');
   const now = new Date().toISOString();
   const pass: Pass = { ...input, serial: newSerial(), authToken: randomToken(24), createdAt: now, updatedAt: now, voided: false, google: { synced: false } };
   await s.putPass(pass);
@@ -213,17 +213,17 @@ api.post('/passes', async (c) => {
 
 api.get('/passes/:serial', async (c) => {
   const p = await store(c).getPass(c.req.param('serial'));
-  return p ? c.json(p) : c.json({ error: 'No encontrado' }, 404);
+  return p ? c.json(p) : c.json({ error: 'Not found' }, 404);
 });
 
 api.put('/passes/:serial', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
-  if (!pass) return c.json({ error: 'No encontrado' }, 404);
+  if (!pass) return c.json({ error: 'Not found' }, 404);
   const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean }>();
   if (body.holderName !== undefined) {
     const name = text(body.holderName);
-    if (!name) throw new ValidationError('El nombre del titular es obligatorio');
+    if (!name) throw new ValidationError('Holder name is required');
     pass.holderName = name.slice(0, 200);
   }
   if (body.data !== undefined) pass.data = parseData(body.data);
@@ -237,10 +237,10 @@ api.put('/passes/:serial', async (c) => {
 api.get('/passes/:serial/pkpass', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
-  if (!pass) return c.json({ error: 'No encontrado' }, 404);
+  if (!pass) return c.json({ error: 'Not found' }, 404);
   const [tpl, apple] = await Promise.all([s.getTemplate(pass.templateId), s.getAppleSettings()]);
-  if (!tpl) return c.json({ error: 'Plantilla inexistente' }, 404);
-  if (!apple) throw new ValidationError('Apple no está configurado');
+  if (!tpl) return c.json({ error: 'Template not found' }, 404);
+  if (!apple) throw new ValidationError('Apple is not configured');
   const bytes = await buildPkpass(tpl, pass, apple, new URL(c.req.url).origin, await loadImages(s, tpl));
   return c.body(bytes, 200, {
     'content-type': 'application/vnd.apple.pkpass',
@@ -251,18 +251,18 @@ api.get('/passes/:serial/pkpass', async (c) => {
 api.get('/passes/:serial/google-link', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
-  if (!pass) return c.json({ error: 'No encontrado' }, 404);
+  if (!pass) return c.json({ error: 'Not found' }, 404);
   const [tpl, google] = await Promise.all([s.getTemplate(pass.templateId), s.getGoogleSettings()]);
-  if (!tpl) return c.json({ error: 'Plantilla inexistente' }, 404);
-  if (!google) throw new ValidationError('Google no está configurado');
-  if (!pass.google.synced || !pass.google.objectId) throw new ValidationError('El pase no está sincronizado con Google; reintentá la sincronización');
+  if (!tpl) return c.json({ error: 'Template not found' }, 404);
+  if (!google) throw new ValidationError('Google is not configured');
+  if (!pass.google.synced || !pass.google.objectId) throw new ValidationError('The pass is not synced with Google; retry the sync');
   return c.json({ url: await saveLink(google, tpl.kind, pass.google.objectId, [new URL(c.req.url).origin]) });
 });
 
 api.post('/passes/:serial/sync', async (c) => {
   const s = store(c);
-  if (!(await s.getPass(c.req.param('serial')))) return c.json({ error: 'No encontrado' }, 404);
+  if (!(await s.getPass(c.req.param('serial')))) return c.json({ error: 'Not found' }, 404);
   return c.json(await syncPass(ctxOf(c), c.req.param('serial')));
 });
 
-api.all('*', (c) => c.json({ error: 'No encontrado' }, 404));
+api.all('*', (c) => c.json({ error: 'Not found' }, 404));

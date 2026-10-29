@@ -19,10 +19,10 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Pases</h1>
-        <p class="text-muted-foreground text-sm">Pases emitidos para Apple Wallet y Google Wallet.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Passes</h1>
+        <p class="text-muted-foreground text-sm">Passes issued for Apple Wallet and Google Wallet.</p>
       </div>
-      <a hlmBtn routerLink="/pases/nuevo"><ng-icon name="lucidePlus" /> Emitir pase</a>
+      <a hlmBtn routerLink="/passes/new"><ng-icon name="lucidePlus" /> Issue pass</a>
     </header>
 
     @if (loading()) {
@@ -34,57 +34,57 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
     } @else if (!passes().length) {
       <div class="border-border flex max-w-4xl flex-col items-center gap-3 rounded-lg border border-dashed p-10 text-center">
         <ng-icon name="lucideTicket" class="text-muted-foreground text-3xl" />
-        <p class="font-medium">Todavía no emitiste pases</p>
+        <p class="font-medium">No passes issued yet</p>
         <p class="text-muted-foreground text-sm">
           @if (templates().size) {
-            Elegí una plantilla y completá los datos del titular.
+            Pick a template and fill in the holder details.
           } @else {
-            Primero creá una plantilla y configurá las credenciales en Ajustes.
+            Create a template first and set up your credentials in Settings.
           }
         </p>
         @if (templates().size) {
-          <a hlmBtn variant="outline" routerLink="/pases/nuevo">Emitir pase</a>
+          <a hlmBtn variant="outline" routerLink="/passes/new">Issue pass</a>
         } @else {
-          <a hlmBtn variant="outline" routerLink="/plantillas/nueva">Crear plantilla</a>
+          <a hlmBtn variant="outline" routerLink="/templates/new">Create template</a>
         }
       </div>
     } @else {
       <div class="flex max-w-4xl flex-col gap-3">
         <div class="relative max-w-sm">
           <ng-icon name="lucideSearch" class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2" />
-          <input hlmInput type="search" class="w-full pl-8" placeholder="Buscar por titular o serial" aria-label="Buscar pases" [(ngModel)]="query" />
+          <input hlmInput type="search" class="w-full pl-8" placeholder="Search by holder or serial" aria-label="Search passes" [(ngModel)]="query" />
         </div>
         <div hlmTableContainer>
           <table hlmTable>
             <thead hlmTHead>
               <tr hlmTr>
-                <th hlmTh>Titular</th>
+                <th hlmTh>Holder</th>
                 <th hlmTh>Serial</th>
-                <th hlmTh>Plantilla</th>
-                <th hlmTh>Estado</th>
-                <th hlmTh>Actualizado</th>
+                <th hlmTh>Template</th>
+                <th hlmTh>Status</th>
+                <th hlmTh>Updated</th>
               </tr>
             </thead>
             <tbody hlmTBody>
               @for (p of filtered(); track p.serial) {
                 <tr hlmTr>
                   <td hlmTd>
-                    <a class="font-medium hover:underline" [routerLink]="['/pases', p.serial]">{{ p.holderName }}</a>
+                    <a class="font-medium hover:underline" [routerLink]="['/passes', p.serial]">{{ p.holderName }}</a>
                   </td>
                   <td hlmTd class="font-mono text-xs">{{ p.serial }}</td>
                   <td hlmTd>{{ templates().get(p.templateId) ?? '—' }}</td>
                   <td hlmTd>
                     @if (p.voided) {
-                      <span hlmBadge variant="destructive">Anulado</span>
+                      <span hlmBadge variant="destructive">Voided</span>
                     } @else {
-                      <span hlmBadge variant="secondary">Activo</span>
+                      <span hlmBadge variant="secondary">Active</span>
                     }
                   </td>
                   <td hlmTd class="text-muted-foreground">{{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</td>
                 </tr>
               } @empty {
                 <tr hlmTr>
-                  <td hlmTd colspan="5" class="text-muted-foreground text-center">Sin resultados para «{{ query() }}»</td>
+                  <td hlmTd colspan="5" class="text-muted-foreground text-center">No results for “{{ query() }}”</td>
                 </tr>
               }
             </tbody>

@@ -49,14 +49,14 @@ async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]): Promis
 /** Sincroniza un pase con Google (upsert de class + object) y avisa a los dispositivos Apple. */
 export async function syncPass(ctx: Ctx, serial: string): Promise<SyncResult> {
   const pass = await ctx.store.getPass(serial);
-  if (!pass) throw new Error('Pase inexistente');
+  if (!pass) throw new Error('Pass not found');
   const tpl = await ctx.store.getTemplate(pass.templateId);
-  if (!tpl) throw new Error('Plantilla inexistente');
+  if (!tpl) throw new Error('Template not found');
   const [as, gs] = await Promise.all([ctx.store.getAppleSettings(), ctx.store.getGoogleSettings()]);
 
   const result: SyncResult = {
-    apple: { sent: 0, failed: 0, skipped: as ? undefined : 'Apple no configurado' },
-    google: { ok: false, skipped: gs ? undefined : 'Google no configurado' },
+    apple: { sent: 0, failed: 0, skipped: as ? undefined : 'Apple not configured' },
+    google: { ok: false, skipped: gs ? undefined : 'Google not configured' },
   };
 
   if (gs) {
@@ -86,15 +86,15 @@ export async function syncPass(ctx: Ctx, serial: string): Promise<SyncResult> {
 /** Republica una plantilla: marca todos sus pases como actualizados, sincroniza Google y hace push a Apple. */
 export async function publishTemplate(ctx: Ctx, templateId: string): Promise<SyncResult & { passes: number }> {
   const tpl = await ctx.store.getTemplate(templateId);
-  if (!tpl) throw new Error('Plantilla inexistente');
+  if (!tpl) throw new Error('Template not found');
   const [as, gs] = await Promise.all([ctx.store.getAppleSettings(), ctx.store.getGoogleSettings()]);
   const summaries = (await ctx.store.listPasses()).filter((p) => p.templateId === templateId);
   const now = new Date().toISOString();
 
   const result: SyncResult & { passes: number } = {
     passes: summaries.length,
-    apple: { sent: 0, failed: 0, skipped: as ? undefined : 'Apple no configurado' },
-    google: { ok: false, skipped: gs ? undefined : 'Google no configurado' },
+    apple: { sent: 0, failed: 0, skipped: as ? undefined : 'Apple not configured' },
+    google: { ok: false, skipped: gs ? undefined : 'Google not configured' },
   };
 
   let token: string | undefined;

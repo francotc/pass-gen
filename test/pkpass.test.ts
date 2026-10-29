@@ -2,7 +2,7 @@ import { unzipSync } from 'fflate';
 import forge from 'node-forge';
 import { describe, expect, it } from 'vitest';
 import { certInfo, certToPem, parseP12 } from '../src/worker/lib/apple/certs';
-import { buildPassJson, buildPkpass, hexToRgb } from '../src/worker/lib/apple/pkpass';
+import { buildPassJson, buildPkpass, hexToRgb, truncateUtf8 } from '../src/worker/lib/apple/pkpass';
 import { sha1Hex } from '../src/worker/lib/crypto';
 import type { Pass } from '../src/worker/types';
 import { appleSettings, makeTemplate, selfSignedCert } from './helpers';
@@ -70,5 +70,27 @@ describe('certs', () => {
     const cerDer = forge.util.binary.raw.decode(forge.asn1.toDer(forge.pki.certificateToAsn1(c.cert)).getBytes());
     expect(certToPem(cerDer)).toContain('BEGIN CERTIFICATE');
     expect(certInfo(c.certPem).notAfter).toBe('2027-01-01T00:00:00.000Z');
+  });
+});
+
+describe('NFC', () => {
+  const key = btoa(String.fromCharCode(...new Uint8Array(91).fill(7)));
+
+  it('agrega el diccionario nfc con mensaje renderizado y recortado a 64 bytes', () => {
+    const t = makeTemplate({ nfc: { enabled: true, message: 'ID:{{serial}}:{{long}}', encryptionPublicKey: key, requiresAuthentication: true } });
+    const json = buildPassJson(t, { ...pass, data: { long: 'x'.repeat(100) } }, appleSettings(), 'https://x.dev');
+    const nfc = json.nfc as { message: string; encryptionPublicKey: string; requiresAuthentication: boolean };
+    expect(nfc.message.startsWith('ID:ABC123:')).toBe(true);
+    expect(new TextEncoder().encode(nfc.message).length).toBe(64);
+    expect(nfc).toMatchObject({ encryptionPublicKey: key, requiresAuthentication: true });
+  });
+
+  it('sin clave pública o deshabilitado no agrega nfc', () => {
+    expect(buildPassJson(makeTemplate({ nfc: { enabled: true, message: 'x' } }), pass, appleSettings(), 'https://x.dev')).not.toHaveProperty('nfc');
+    expect(buildPassJson(makeTemplate(), pass, appleSettings(), 'https://x.dev')).not.toHaveProperty('nfc');
+  });
+
+  it('truncateUtf8 no corta caracteres multibyte', () => {
+    expect(truncateUtf8('ñññ', 5)).toBe('ññ');
   });
 });

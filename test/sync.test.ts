@@ -41,7 +41,7 @@ describe('APNs', () => {
   });
 
   it('sin credenciales de push falla claro', async () => {
-    await expect(pushUpdate(appleSettings(), ['t'])).rejects.toThrow('Falta configurar');
+    await expect(pushUpdate(appleSettings(), ['t'])).rejects.toThrow('not configured');
   });
 });
 
@@ -84,6 +84,6 @@ describe('sync', () => {
     await store.putTemplate(makeTemplate());
     await store.putPass(makePass('S2'));
     const res = await syncPass({ env, store, origin: 'https://x' }, 'S2');
-    expect(res).toMatchObject({ apple: { skipped: 'Apple no configurado' }, google: { skipped: 'Google no configurado' } });
+    expect(res).toMatchObject({ apple: { skipped: 'Apple not configured' }, google: { skipped: 'Google not configured' } });
   });
 });

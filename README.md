@@ -49,7 +49,7 @@ npm install
 4. **Cloudflare Access** (Zero Trust → Access → Applications):
    - Una aplicación *self-hosted* para `pass.frant.dev`, con tu política de login.
    - Una política **Bypass / Everyone** para las rutas `/v1/*` y `/public/*`. Puede ser una segunda aplicación con esos paths.
-   - Opcional, como defensa en profundidad: completar `ACCESS_TEAM_DOMAIN` (`miteam.cloudflareaccess.com`) y `ACCESS_AUD` (el *Application Audience Tag*) en `wrangler.jsonc`. Con eso el Worker valida el header `Cf-Access-Jwt-Assertion` en `/api/*`.
+   - `ACCESS_TEAM_DOMAIN` y `ACCESS_AUD` ya están en `wrangler.jsonc`: el Worker valida el header `Cf-Access-Jwt-Assertion` en `/api/*`. Si cambiás de aplicación de Access, actualizá el *Application Audience Tag*.
 
 5. Cargar credenciales en **Ajustes**:
    - **Apple**: el `.p12` del Pass Type ID con su contraseña (o certificado + clave en PEM) y el certificado [WWDR G4](https://www.apple.com/certificateauthority/). Team ID y Pass Type ID se leen del certificado. Para el push, la clave `.p8` de APNs con su Key ID.
@@ -78,8 +78,10 @@ Después agregá el binding en `wrangler.jsonc`, con el id que devuelve el coman
 ## Desarrollo
 
 ```bash
-echo "ENCRYPTION_KEY=$(openssl rand -base64 32)" > .dev.vars
+printf 'ENCRYPTION_KEY=%s\nACCESS_TEAM_DOMAIN=\nACCESS_AUD=\n' "$(openssl rand -base64 32)" > .dev.vars
 ```
+
+(En local no hay Access delante, por eso `.dev.vars` vacía `ACCESS_TEAM_DOMAIN` y `ACCESS_AUD`.)
 
 ```bash
 npm run dev          # wrangler dev en :8787 (compila el front con build.command)
@@ -108,6 +110,13 @@ src/web/               Angular + spartan-ng (helm en src/web/libs/ui)
 test/                  Vitest en el runtime de Workers (@cloudflare/vitest-plugin)
 docs/superpowers/      spec y plan
 ```
+
+## NFC
+
+Cada plantilla puede habilitar NFC (sección *NFC* del editor):
+
+- **Apple (Value Added Services)**: agrega `nfc` al `pass.json` con el payload (máx. 64 bytes, admite placeholders), la clave pública ECDH P-256 de la terminal (SubjectPublicKeyInfo en base64, la entrega el proveedor de la terminal) y opcionalmente `requiresAuthentication`. Requiere un Pass Type ID con el entitlement de NFC aprobado por Apple; sin la clave pública el pase se emite sin NFC.
+- **Google (Smart Tap)**: habilita `enableSmartTap` y `redemptionIssuers` en la class y envía el payload como `smartTapRedemptionValue` en cada object. Smart Tap tiene que estar habilitado para el issuer en la Google Pay & Wallet Console (collector ID y claves de la terminal).
 
 ## Plantillas y datos
 

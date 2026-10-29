@@ -66,7 +66,16 @@ describe('plantillas y pases', () => {
     const body = (await upd.json()) as { pass: Pass; sync: unknown };
     expect(body.pass.data.stamps).toBe('3');
     expect(body.pass.updatedAt > pass.updatedAt || body.pass.updatedAt === pass.updatedAt).toBe(true);
-    expect(body.sync).toMatchObject({ apple: { skipped: 'Apple no configurado' } });
+    expect(body.sync).toMatchObject({ apple: { skipped: 'Apple not configured' } });
+  });
+
+  it('valida NFC', async () => {
+    const bad = await json('/api/templates', 'POST', { ...templateInput, nfc: { enabled: true, message: 'x'.repeat(65) } });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ error: 'NFC: the message exceeds 64 bytes' });
+    expect((await json('/api/templates', 'POST', { ...templateInput, nfc: { enabled: true, message: 'x', encryptionPublicKey: 'abc' } })).status).toBe(400);
+    const ok = await json('/api/templates', 'POST', { ...templateInput, nfc: { enabled: true, message: '{{serial}}' } });
+    expect(((await ok.json()) as Template).nfc).toEqual({ enabled: true, message: '{{serial}}' });
   });
 
   it('descarga pkpass', async () => {

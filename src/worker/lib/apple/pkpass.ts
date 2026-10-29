@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import forge from 'node-forge';
-import type { AppleSettings, BarcodeFormat, Field, FieldSection, ImageSlot, Pass, Template } from '../../types';
+import { NFC_MAX_BYTES, type AppleSettings, type BarcodeFormat, type Field, type FieldSection, type ImageSlot, type Pass, type Template } from '../../types';
 import { b64ToBytes, sha1Hex } from '../crypto';
 import { passVars, render } from '../render';
 
@@ -34,6 +34,18 @@ function renderFields(fields: Field[], vars: Record<string, string>) {
   }));
 }
 
+/** Recorta a un máximo de bytes UTF-8 sin cortar caracteres. */
+export function truncateUtf8(s: string, max: number): string {
+  const enc = new TextEncoder();
+  if (enc.encode(s).length <= max) return s;
+  let out = '';
+  for (const ch of s) {
+    if (enc.encode(out + ch).length > max) break;
+    out += ch;
+  }
+  return out;
+}
+
 export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: string): Record<string, unknown> {
   const vars = passVars(p);
   const style: Record<string, unknown> = {};
@@ -64,6 +76,14 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
   };
+  // Apple exige la clave pública de la terminal; sin ella el pase sale sin NFC.
+  if (t.nfc?.enabled && t.nfc.encryptionPublicKey) {
+    json.nfc = {
+      message: truncateUtf8(render(t.nfc.message, vars), NFC_MAX_BYTES),
+      encryptionPublicKey: t.nfc.encryptionPublicKey,
+      ...(t.nfc.requiresAuthentication ? { requiresAuthentication: true } : {}),
+    };
+  }
   // Apple solo acepta HTTPS; en desarrollo local el pase se emite sin actualizaciones.
   if (origin.startsWith('https://')) {
     json.webServiceURL = `${origin}/`;

@@ -12,11 +12,11 @@ describe('utilidades del front', () => {
   it('resume la sincronización', () => {
     expect(syncMessage({ apple: { sent: 2, failed: 0 }, google: { ok: true } })).toEqual({
       ok: true,
-      text: 'Google actualizado · Apple: 2 dispositivo(s) avisado(s)',
+      text: 'Google updated · Apple: 2 device(s) notified',
     });
-    expect(syncMessage({ apple: { sent: 0, failed: 0, skipped: 'Apple no configurado' }, google: { ok: false, error: 'boom' } })).toEqual({
+    expect(syncMessage({ apple: { sent: 0, failed: 0, skipped: 'Apple not configured' }, google: { ok: false, error: 'boom' } })).toEqual({
       ok: false,
-      text: 'Google: boom · Apple no configurado',
+      text: 'Google: boom · Apple not configured',
     });
   });
 });

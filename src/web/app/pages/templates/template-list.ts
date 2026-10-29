@@ -17,10 +17,10 @@ import { Api, errorMessage, type TemplateSummary } from '../../core/api.service'
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
-        <h1 class="text-2xl font-semibold tracking-tight">Plantillas</h1>
-        <p class="text-muted-foreground text-sm">Diseño compartido por Apple Wallet y Google Wallet.</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Templates</h1>
+        <p class="text-muted-foreground text-sm">Shared design for Apple Wallet and Google Wallet.</p>
       </div>
-      <a hlmBtn routerLink="/plantillas/nueva"><ng-icon name="lucidePlus" /> Nueva plantilla</a>
+      <a hlmBtn routerLink="/templates/new"><ng-icon name="lucidePlus" /> New template</a>
     </header>
 
     @if (loading()) {
@@ -31,28 +31,28 @@ import { Api, errorMessage, type TemplateSummary } from '../../core/api.service'
     } @else if (!items().length) {
       <div class="border-border flex max-w-3xl flex-col items-center gap-3 rounded-lg border border-dashed p-10 text-center">
         <ng-icon name="lucideLayoutTemplate" class="text-muted-foreground text-3xl" />
-        <p class="font-medium">Todavía no hay plantillas</p>
-        <p class="text-muted-foreground text-sm">Creá una para definir colores, imágenes y campos del pase.</p>
-        <a hlmBtn variant="outline" routerLink="/plantillas/nueva">Crear plantilla</a>
+        <p class="font-medium">No templates yet</p>
+        <p class="text-muted-foreground text-sm">Create one to define the pass colors, images and fields.</p>
+        <a hlmBtn variant="outline" routerLink="/templates/new">Create template</a>
       </div>
     } @else {
       <div hlmTableContainer class="max-w-3xl">
         <table hlmTable>
           <thead hlmTHead>
             <tr hlmTr>
-              <th hlmTh>Nombre</th>
-              <th hlmTh>Tipo</th>
-              <th hlmTh>Actualizada</th>
+              <th hlmTh>Name</th>
+              <th hlmTh>Type</th>
+              <th hlmTh>Updated</th>
             </tr>
           </thead>
           <tbody hlmTBody>
             @for (t of items(); track t.id) {
               <tr hlmTr>
                 <td hlmTd>
-                  <a class="font-medium hover:underline" [routerLink]="['/plantillas', t.id]">{{ t.name }}</a>
+                  <a class="font-medium hover:underline" [routerLink]="['/templates', t.id]">{{ t.name }}</a>
                 </td>
                 <td hlmTd>
-                  <span hlmBadge variant="secondary">{{ t.kind === 'loyalty' ? 'Fidelidad' : 'Genérico' }}</span>
+                  <span hlmBadge variant="secondary">{{ t.kind === 'loyalty' ? 'Loyalty' : 'Generic' }}</span>
                 </td>
                 <td hlmTd class="text-muted-foreground">{{ t.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</td>
               </tr>

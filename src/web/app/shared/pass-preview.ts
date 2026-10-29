@@ -1,5 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, input } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideNfc } from '@ng-icons/lucide';
 import { render } from '../../../worker/lib/render';
 import type { Field, TemplateInput } from '../../../worker/types';
 import { Api } from '../core/api.service';
@@ -58,6 +60,11 @@ interface RenderedField {
             }
           </div>
           <div class="mt-auto flex flex-col items-center gap-1 p-3">
+            @if (nfcEnabled()) {
+              <span class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase" [style.color]="t().colors.label">
+                <ng-icon name="lucideNfc" /> Hold near reader
+              </span>
+            }
             @if (t().barcode.message) {
               <div class="rounded-md bg-white p-2">
                 <ng-container *ngTemplateOutlet="code" />
@@ -84,6 +91,9 @@ interface RenderedField {
               }
             </span>
             <span class="truncate text-sm">{{ t().google.issuerName || t().organizationName }}</span>
+            @if (nfcEnabled()) {
+              <ng-icon name="lucideNfc" class="ml-auto shrink-0" aria-label="Smart Tap enabled" />
+            }
           </div>
           <div class="px-4 pb-3">
             @if (t().kind === 'loyalty') {
@@ -96,13 +106,13 @@ interface RenderedField {
                   </div>
                 }
                 <div>
-                  <div class="text-[11px] opacity-80">Titular</div>
-                  <div class="text-base">{{ holderName() || 'Nombre del titular' }}</div>
+                  <div class="text-[11px] opacity-80">Holder</div>
+                  <div class="text-base">{{ holderName() || 'Holder name' }}</div>
                 </div>
               </div>
             } @else {
               <div class="text-xs opacity-80">{{ t().organizationName || t().name }}</div>
-              <div class="text-xl font-medium">{{ lead()?.value || holderName() || 'Nombre del titular' }}</div>
+              <div class="text-xl font-medium">{{ lead()?.value || holderName() || 'Holder name' }}</div>
               @if (lead(); as l) {
                 <div class="text-xs opacity-80">{{ l.label }}</div>
               }
@@ -137,13 +147,13 @@ interface RenderedField {
 
     <ng-template #code>
       @if (t().barcode.format === 'QR' || t().barcode.format === 'AZTEC') {
-        <svg viewBox="0 0 21 21" class="size-24" role="img" [attr.aria-label]="'Código ' + t().barcode.format">
+        <svg viewBox="0 0 21 21" class="size-24" role="img" [attr.aria-label]="t().barcode.format + ' barcode'">
           @for (c of qrCells; track $index) {
             <rect [attr.x]="c[0]" [attr.y]="c[1]" width="1" height="1" fill="#000" />
           }
         </svg>
       } @else {
-        <svg viewBox="0 0 60 16" class="h-12 w-40" role="img" [attr.aria-label]="'Código ' + t().barcode.format">
+        <svg viewBox="0 0 60 16" class="h-12 w-40" role="img" [attr.aria-label]="t().barcode.format + ' barcode'">
           @for (b of bars; track $index) {
             <rect [attr.x]="b[0]" y="0" [attr.width]="b[1]" height="16" fill="#000" />
           }
@@ -151,7 +161,8 @@ interface RenderedField {
       }
     </ng-template>
   `,
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, NgIcon],
+  providers: [provideIcons({ lucideNfc })],
 })
 export class PassPreview {
   private readonly api = inject(Api);
@@ -165,7 +176,7 @@ export class PassPreview {
 
   // Sin computed: los formularios mutan los objetos en lugar de reemplazarlos.
   protected r(s: string) {
-    return render(s, { ...this.data(), holderName: this.holderName() || 'Nombre del titular', serial: this.serial() });
+    return render(s, { ...this.data(), holderName: this.holderName() || 'Holder name', serial: this.serial() });
   }
 
   private renderFields(fs: Field[]): RenderedField[] {
@@ -197,6 +208,11 @@ export class PassPreview {
     const f = this.fields();
     const rest = [...f.headerFields, ...f.primaryFields].slice(1);
     return [...rest, ...f.secondaryFields, ...f.auxiliaryFields, ...f.backFields].filter((m) => m.value);
+  }
+
+  /** Plantillas guardadas antes de soportar NFC no tienen `nfc`. */
+  protected nfcEnabled() {
+    return this.t().nfc?.enabled ?? false;
   }
 
   private img(id?: string) {

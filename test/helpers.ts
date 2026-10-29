@@ -57,6 +57,7 @@ export function makeTemplate(over: Partial<Template> = {}): Template {
     auxiliaryFields: [],
     backFields: [{ key: 'terms', label: 'Términos', value: 'Válido en local' }],
     google: { programName: 'Sellos' },
+    nfc: { enabled: false, message: '' },
     createdAt: '2026-10-29T00:00:00.000Z',
     updatedAt: '2026-10-29T00:00:00.000Z',
     ...over,

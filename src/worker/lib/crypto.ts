@@ -35,7 +35,7 @@ export function randomToken(bytes = 24): string {
 
 async function aesKey(keyB64: string): Promise<CryptoKey> {
   const raw = b64ToBytes(keyB64);
-  if (raw.length !== 32) throw new Error('ENCRYPTION_KEY debe ser 32 bytes en base64');
+  if (raw.length !== 32) throw new Error('ENCRYPTION_KEY must be 32 bytes in base64');
   return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 

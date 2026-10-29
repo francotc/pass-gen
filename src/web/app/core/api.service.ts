@@ -36,7 +36,7 @@ export function errorMessage(e: unknown): string {
   if (e instanceof HttpErrorResponse) {
     const body = e.error as { error?: string; detail?: string } | null;
     if (body?.error) return body.detail ? `${body.error}: ${body.detail}` : body.error;
-    if (e.status === 0) return 'Sin conexión con el servidor';
+    if (e.status === 0) return 'Cannot reach the server';
     return `Error ${e.status}`;
   }
   return e instanceof Error ? e.message : String(e);

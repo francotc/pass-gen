@@ -33,9 +33,9 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
   providers: [provideIcons({ lucideShieldCheck, lucideKeyRound, lucideCircleAlert })],
   template: `
     <header class="mb-6 flex flex-col gap-1">
-      <h1 class="text-2xl font-semibold tracking-tight">Ajustes</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
       <p class="text-muted-foreground text-sm">
-        Credenciales de Apple Wallet y Google Wallet. Se guardan cifradas en el servidor y nunca se vuelven a mostrar.
+        Apple Wallet and Google Wallet credentials. They are stored encrypted on the server and never shown again.
       </p>
     </header>
 
@@ -43,12 +43,12 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
       <section hlmCard>
         <div hlmCardHeader>
           <h2 hlmCardTitle>Apple Wallet</h2>
-          <p hlmCardDescription>Certificado del Pass Type ID, WWDR y push (APNs).</p>
+          <p hlmCardDescription>Pass Type ID certificate, WWDR and push (APNs).</p>
           <div hlmCardAction>
             @if (status()?.apple) {
-              <span hlmBadge variant="secondary"><ng-icon name="lucideShieldCheck" /> Configurado</span>
+              <span hlmBadge variant="secondary"><ng-icon name="lucideShieldCheck" /> Configured</span>
             } @else {
-              <span hlmBadge variant="outline">Sin configurar</span>
+              <span hlmBadge variant="outline">Not configured</span>
             }
           </div>
         </div>
@@ -59,65 +59,65 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
               <dd class="truncate">{{ a.passTypeId }}</dd>
               <dt class="text-muted-foreground">Team ID</dt>
               <dd>{{ a.teamId }}</dd>
-              <dt class="text-muted-foreground">Certificado</dt>
+              <dt class="text-muted-foreground">Certificate</dt>
               <dd class="truncate">{{ a.certSubject }}</dd>
-              <dt class="text-muted-foreground">Vence</dt>
+              <dt class="text-muted-foreground">Expires</dt>
               <dd>{{ a.certExpires | date: 'dd.MM.yyyy' }}</dd>
               <dt class="text-muted-foreground">Push</dt>
-              <dd>{{ a.apns ? 'Configurado' + (a.apnsKeyId ? ' (clave ' + a.apnsKeyId + ')' : ' (mTLS)') : 'Sin configurar' }}</dd>
+              <dd>{{ a.apns ? 'Configured' + (a.apnsKeyId ? ' (key ' + a.apnsKeyId + ')' : ' (mTLS)') : 'Not configured' }}</dd>
             </dl>
           }
 
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="p12">Certificado .p12 del Pass Type ID</label>
+            <label hlmLabel for="p12">Pass Type ID certificate (.p12)</label>
             <input hlmInput id="p12" type="file" accept=".p12,.pfx" (change)="pick('p12', $event)" />
           </div>
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="p12pw">Contraseña del .p12</label>
+            <label hlmLabel for="p12pw">.p12 password</label>
             <input hlmInput id="p12pw" type="password" name="p12Password" autocomplete="off" [(ngModel)]="p12Password" />
           </div>
           <details class="text-sm">
-            <summary class="text-muted-foreground cursor-pointer">Usar certificado y clave en PEM en lugar del .p12</summary>
+            <summary class="text-muted-foreground cursor-pointer">Use PEM certificate and key instead of a .p12</summary>
             <div class="mt-3 flex flex-col gap-3">
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="cert">Certificado (.pem / .cer)</label>
+                <label hlmLabel for="cert">Certificate (.pem / .cer)</label>
                 <input hlmInput id="cert" type="file" accept=".pem,.cer,.crt" (change)="pick('cert', $event)" />
               </div>
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="key">Clave privada (.pem, sin contraseña)</label>
+                <label hlmLabel for="key">Private key (.pem, unencrypted)</label>
                 <input hlmInput id="key" type="file" accept=".pem,.key" (change)="pick('key', $event)" />
               </div>
             </div>
           </details>
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="wwdr">Certificado WWDR de Apple (G4, .cer o .pem)</label>
+            <label hlmLabel for="wwdr">Apple WWDR certificate (G4, .cer or .pem)</label>
             <input hlmInput id="wwdr" type="file" accept=".pem,.cer,.crt" (change)="pick('wwdr', $event)" />
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="flex flex-col gap-2">
               <label hlmLabel for="team">Team ID</label>
-              <input hlmInput id="team" name="teamId" placeholder="Se lee del certificado" [(ngModel)]="teamId" />
+              <input hlmInput id="team" name="teamId" placeholder="Read from the certificate" [(ngModel)]="teamId" />
             </div>
             <div class="flex flex-col gap-2">
               <label hlmLabel for="ptid">Pass Type ID</label>
-              <input hlmInput id="ptid" name="passTypeId" placeholder="pass.com.ejemplo" [(ngModel)]="passTypeId" />
+              <input hlmInput id="ptid" name="passTypeId" placeholder="pass.com.example" [(ngModel)]="passTypeId" />
             </div>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="flex flex-col gap-2">
-              <label hlmLabel for="apnsKey">Clave APNs (.p8)</label>
+              <label hlmLabel for="apnsKey">APNs key (.p8)</label>
               <input hlmInput id="apnsKey" type="file" accept=".p8" (change)="pick('apnsKey', $event)" />
             </div>
             <div class="flex flex-col gap-2">
-              <label hlmLabel for="kid">Key ID de la clave APNs</label>
+              <label hlmLabel for="kid">APNs key ID</label>
               <input hlmInput id="kid" name="apnsKeyId" placeholder="ABC123DEFG" [(ngModel)]="apnsKeyId" />
             </div>
           </div>
           <p class="text-muted-foreground text-xs">
-            Los campos vacíos conservan el valor guardado. El push también puede usar el certificado por mTLS (ver README).
+            Empty fields keep the saved value. Push can also use the certificate over mTLS (see README).
           </p>
           <div>
-            <button hlmBtn type="submit" [disabled]="savingApple()">{{ savingApple() ? 'Guardando…' : 'Guardar Apple' }}</button>
+            <button hlmBtn type="submit" [disabled]="savingApple()">{{ savingApple() ? 'Saving…' : 'Save Apple' }}</button>
           </div>
         </form>
       </section>
@@ -125,12 +125,12 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
       <section hlmCard>
         <div hlmCardHeader>
           <h2 hlmCardTitle>Google Wallet</h2>
-          <p hlmCardDescription>Issuer ID y service account con acceso a la Google Wallet API.</p>
+          <p hlmCardDescription>Issuer ID and a service account with access to the Google Wallet API.</p>
           <div hlmCardAction>
             @if (status()?.google) {
-              <span hlmBadge variant="secondary"><ng-icon name="lucideShieldCheck" /> Configurado</span>
+              <span hlmBadge variant="secondary"><ng-icon name="lucideShieldCheck" /> Configured</span>
             } @else {
-              <span hlmBadge variant="outline">Sin configurar</span>
+              <span hlmBadge variant="outline">Not configured</span>
             }
           </div>
         </div>
@@ -148,12 +148,12 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
             <input hlmInput id="issuer" name="issuerId" inputmode="numeric" placeholder="3388000000012345678" [(ngModel)]="issuerId" />
           </div>
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="sa">JSON del service account</label>
-            <input hlmInput id="saFile" type="file" accept=".json,application/json" aria-label="Archivo JSON del service account" (change)="pickServiceAccount($event)" />
+            <label hlmLabel for="sa">Service account JSON</label>
+            <input hlmInput id="saFile" type="file" accept=".json,application/json" aria-label="Service account JSON file" (change)="pickServiceAccount($event)" />
             <textarea hlmTextarea id="sa" name="serviceAccount" rows="5" class="font-mono text-xs" placeholder='{"type": "service_account", ...}' [(ngModel)]="serviceAccount"></textarea>
           </div>
           <div>
-            <button hlmBtn type="submit" [disabled]="savingGoogle()">{{ savingGoogle() ? 'Guardando…' : 'Guardar Google' }}</button>
+            <button hlmBtn type="submit" [disabled]="savingGoogle()">{{ savingGoogle() ? 'Saving…' : 'Save Google' }}</button>
           </div>
         </form>
       </section>
@@ -163,9 +163,9 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
         <h3 hlmAlertTitle>Cloudflare Access</h3>
         <div hlmAlertDescription>
           <p>
-            Protegé la app con una aplicación de Access y agregá una política <strong>Bypass</strong> para
-            <code>/v1/*</code> (web service de Apple: los iPhone se autentican con el token del pase) y
-            <code>/public/*</code> (imágenes para Google y descarga del .pkpass por el titular).
+            Protect the app with an Access application and add a <strong>Bypass</strong> policy for
+            <code>/v1/*</code> (Apple web service: iPhones authenticate with the pass token) and
+            <code>/public/*</code> (images for Google and the holder's .pkpass download).
           </p>
         </div>
       </section>
@@ -221,7 +221,7 @@ export class Settings implements OnInit {
     this.savingApple.set(true);
     try {
       await this.api.saveApple(form);
-      toast.success('Credenciales de Apple guardadas');
+      toast.success('Apple credentials saved');
       this.p12Password = '';
       await this.load();
     } catch (e) {
@@ -235,7 +235,7 @@ export class Settings implements OnInit {
     this.savingGoogle.set(true);
     try {
       await this.api.saveGoogle({ issuerId: this.issuerId || this.status()?.google?.issuerId || '', serviceAccount: this.serviceAccount || undefined });
-      toast.success('Credenciales de Google guardadas');
+      toast.success('Google credentials saved');
       this.serviceAccount = '';
       await this.load();
     } catch (e) {

@@ -20,29 +20,29 @@ import { PassPreview } from '../../shared/pass-preview';
   providers: [provideIcons({ lucideArrowLeft })],
   template: `
     <header class="mb-6 flex flex-col gap-1">
-      <a routerLink="/pases" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-        <ng-icon name="lucideArrowLeft" /> Pases
+      <a routerLink="/passes" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
+        <ng-icon name="lucideArrowLeft" /> Passes
       </a>
-      <h1 class="text-2xl font-semibold tracking-tight">Emitir pase</h1>
+      <h1 class="text-2xl font-semibold tracking-tight">Issue pass</h1>
     </header>
 
     <div class="grid gap-8 xl:grid-cols-[minmax(0,28rem)_minmax(0,40rem)]">
       <form hlmCard (ngSubmit)="issue()">
         <div hlmCardContent class="flex flex-col gap-4">
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="tpl">Plantilla</label>
+            <label hlmLabel for="tpl">Template</label>
             <select hlmInput id="tpl" name="tpl" required [ngModel]="templateId()" (ngModelChange)="selectTemplate($event)">
-              <option value="" disabled>Elegí una plantilla</option>
+              <option value="" disabled>Choose a template</option>
               @for (t of templates(); track t.id) {
                 <option [value]="t.id">{{ t.name }}</option>
               }
             </select>
             @if (!templates().length) {
-              <p class="text-muted-foreground text-xs">No hay plantillas. <a routerLink="/plantillas/nueva" class="underline">Creá una</a>.</p>
+              <p class="text-muted-foreground text-xs">No templates yet. <a routerLink="/templates/new" class="underline">Create one</a>.</p>
             }
           </div>
           <div class="flex flex-col gap-2">
-            <label hlmLabel for="holder">Nombre del titular</label>
+            <label hlmLabel for="holder">Holder name</label>
             <input hlmInput id="holder" name="holder" required autocomplete="off" [(ngModel)]="holderName" />
           </div>
           @for (k of keys(); track k) {
@@ -53,7 +53,7 @@ import { PassPreview } from '../../shared/pass-preview';
           }
           <div>
             <button hlmBtn type="submit" [disabled]="busy() || !template() || !holderName.trim()">
-              {{ busy() ? 'Emitiendo…' : 'Emitir pase' }}
+              {{ busy() ? 'Issuing…' : 'Issue pass' }}
             </button>
           </div>
         </div>
@@ -86,7 +86,7 @@ export class PassNew implements OnInit {
     try {
       const list = await this.api.templates();
       this.templates.set(list);
-      const preset = this.route.snapshot.queryParamMap.get('plantilla') ?? (list.length === 1 ? list[0].id : '');
+      const preset = this.route.snapshot.queryParamMap.get('template') ?? (list.length === 1 ? list[0].id : '');
       if (preset) await this.selectTemplate(preset);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -112,9 +112,9 @@ export class PassNew implements OnInit {
       const data = Object.fromEntries(Object.entries(this.data).filter(([k]) => keys.has(k)));
       const res = await this.api.issuePass({ templateId: t.id, holderName: this.holderName.trim(), data });
       const msg = syncMessage(res.sync);
-      if (msg.ok) toast.success('Pase emitido', { description: msg.text });
-      else toast.warning('Pase emitido con avisos', { description: msg.text });
-      await this.router.navigate(['/pases', res.pass.serial]);
+      if (msg.ok) toast.success('Pass issued', { description: msg.text });
+      else toast.warning('Pass issued with warnings', { description: msg.text });
+      await this.router.navigate(['/passes', res.pass.serial]);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

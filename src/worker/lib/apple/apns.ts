@@ -33,7 +33,7 @@ export async function pushUpdate(s: AppleSettings, tokens: string[], transport: 
     headers.authorization = `bearer ${jwt}`;
     send = fetch;
   } else {
-    throw new Error('Falta configurar el push de Apple (certificado mTLS o clave .p8)');
+    throw new Error('Apple push is not configured (mTLS certificate or .p8 key)');
   }
 
   await Promise.all(

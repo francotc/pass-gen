@@ -8,6 +8,9 @@ export default defineConfig({
       miniflare: {
         bindings: {
           ENCRYPTION_KEY: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+          // Tests call the API directly, without Cloudflare Access in front.
+          ACCESS_TEAM_DOMAIN: '',
+          ACCESS_AUD: '',
         },
       },
     }),

@@ -78,3 +78,13 @@ describe('API', () => {
     expect(decode(link.split('/save/')[1])).toMatchObject({ aud: 'google', typ: 'savetowallet', payload: { loyaltyObjects: [{ id: '1.S1' }] } });
   });
 });
+
+describe('Smart Tap', () => {
+  it('habilita Smart Tap en la class y envía el valor en el object', () => {
+    const t = makeTemplate({ nfc: { enabled: true, message: 'M-{{serial}}' } });
+    expect(buildClass(t, '338', {})).toMatchObject({ enableSmartTap: true, redemptionIssuers: ['338'] });
+    expect(buildClass(makeTemplate({ ...t, kind: 'generic' }), '338', {})).toMatchObject({ enableSmartTap: true });
+    expect(buildObject(t, pass, '338', {})).toMatchObject({ smartTapRedemptionValue: 'M-S1' });
+    expect(buildObject(makeTemplate(), pass, '338', {})).not.toHaveProperty('smartTapRedemptionValue');
+  });
+});

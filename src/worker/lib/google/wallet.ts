@@ -59,7 +59,8 @@ export interface ImageUrls {
 }
 
 export function buildClass(t: Template, issuerId: string, images: ImageUrls): Record<string, unknown> {
-  const base = { id: classId(issuerId, t.id) };
+  const smartTap = t.nfc?.enabled ? { enableSmartTap: true, redemptionIssuers: [issuerId] } : {};
+  const base = { id: classId(issuerId, t.id), ...smartTap };
   if (t.kind === 'generic') return base;
   return JSON.parse(
     JSON.stringify({
@@ -84,6 +85,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
   const [lead, ...rest] = [...t.headerFields, ...t.primaryFields];
   const others = [...rest, ...t.secondaryFields, ...t.auxiliaryFields, ...t.backFields];
   const common = {
+    smartTapRedemptionValue: t.nfc?.enabled ? render(t.nfc.message, vars) : undefined,
     id: objectId(issuerId, p.serial),
     classId: classId(issuerId, t.id),
     state: p.voided ? 'INACTIVE' : 'ACTIVE',

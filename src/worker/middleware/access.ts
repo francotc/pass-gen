@@ -12,7 +12,7 @@ export const accessGuard = createMiddleware<AppEnv>(async (c, next) => {
   if (!team || !aud) return next();
 
   const token = c.req.header('cf-access-jwt-assertion');
-  if (!token) return c.json({ error: 'Falta el token de Cloudflare Access' }, 401);
+  if (!token) return c.json({ error: 'Missing Cloudflare Access token' }, 401);
   try {
     await verifyWithJwks(token, {
       jwks_uri: `https://${team}/cdn-cgi/access/certs`,
@@ -20,7 +20,7 @@ export const accessGuard = createMiddleware<AppEnv>(async (c, next) => {
       verification: { aud, iss: `https://${team}` },
     });
   } catch {
-    return c.json({ error: 'Token de Cloudflare Access inválido' }, 401);
+    return c.json({ error: 'Invalid Cloudflare Access token' }, 401);
   }
   return next();
 });
