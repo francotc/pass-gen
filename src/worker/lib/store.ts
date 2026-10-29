@@ -87,7 +87,7 @@ export class Store {
     return meta;
   }
 
-  async getImage(id: string): Promise<{ bytes: Uint8Array; meta: ImageMeta } | null> {
+  async getImage(id: string): Promise<{ bytes: Uint8Array<ArrayBuffer>; meta: ImageMeta } | null> {
     const r = await this.kv.getWithMetadata<ImageMeta>(`image:${id}`, 'arrayBuffer');
     if (!r.value || !r.metadata) return null;
     return { bytes: new Uint8Array(r.value), meta: r.metadata };

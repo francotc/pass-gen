@@ -103,7 +103,7 @@ export async function buildPkpass(
   s: AppleSettings,
   origin: string,
   images: Partial<Record<ImageSlot, Uint8Array>>,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const files: Record<string, Uint8Array> = {
     'pass.json': new TextEncoder().encode(JSON.stringify(buildPassJson(t, p, s, origin))),
   };
@@ -123,5 +123,5 @@ export async function buildPkpass(
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));
   files['manifest.json'] = manifestBytes;
   files['signature'] = signManifest(manifestBytes, s);
-  return zipSync(files);
+  return zipSync(files) as Uint8Array<ArrayBuffer>;
 }
