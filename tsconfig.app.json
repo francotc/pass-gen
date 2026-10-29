@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": []
+  },
+  "include": ["src/web/**/*.ts", "src/worker/types.ts", "src/web/libs/ui/**/src/**/*.ts"]
+}

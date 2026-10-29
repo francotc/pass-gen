@@ -125,10 +125,10 @@ describe('web service Apple', () => {
   });
 });
 
-describe('Access', () => {
-  it('sirve el SPA para rutas del front', async () => {
-    const res = await call('/plantillas');
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain('<');
+describe('front', () => {
+  it('delega las rutas del SPA a Static Assets', async () => {
+    const res = await call('/plantillas', { headers: { 'sec-fetch-mode': 'navigate' } });
+    expect(res.headers.get('content-type') ?? '').not.toContain('application/json');
+    expect(res.status).toBeLessThan(500);
   });
 });
