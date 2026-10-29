@@ -77,6 +77,11 @@ describe('plantillas y pases', () => {
     const zip = unzipSync(new Uint8Array(await res.arrayBuffer()));
     const pj = JSON.parse(new TextDecoder().decode(zip['pass.json']));
     expect(pj).toMatchObject({ serialNumber: pass.serial, webServiceURL: `${BASE}/`, authenticationToken: pass.authToken });
+
+    const pub = await call(`/public/passes/${pass.serial}/${pass.authToken}.pkpass`);
+    expect(pub.status).toBe(200);
+    expect(pub.headers.get('content-type')).toBe('application/vnd.apple.pkpass');
+    expect((await call(`/public/passes/${pass.serial}/otro-token`)).status).toBe(404);
   });
 
   it('sube imágenes PNG', async () => {
