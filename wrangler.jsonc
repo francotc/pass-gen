@@ -4,6 +4,8 @@
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [{ "pattern": "pass.frant.dev", "custom_domain": true }],
+  "workers_dev": false,
   "assets": {
     "directory": "dist/web/browser",
     "binding": "ASSETS",

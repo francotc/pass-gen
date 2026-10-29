@@ -40,14 +40,14 @@ npm install
    openssl rand -base64 32 | npx wrangler secret put ENCRYPTION_KEY
    ```
 
-3. Deploy:
+3. Deploy (publica en `https://pass.frant.dev`, configurado como custom domain en `wrangler.jsonc`; la zona `frant.dev` tiene que estar en tu cuenta de Cloudflare):
 
    ```bash
    npm run deploy
    ```
 
 4. **Cloudflare Access** (Zero Trust → Access → Applications):
-   - Una aplicación *self-hosted* para el dominio del Worker, con tu política de login.
+   - Una aplicación *self-hosted* para `pass.frant.dev`, con tu política de login.
    - Una política **Bypass / Everyone** para las rutas `/v1/*` y `/public/*`. Puede ser una segunda aplicación con esos paths.
    - Opcional, como defensa en profundidad: completar `ACCESS_TEAM_DOMAIN` (`miteam.cloudflareaccess.com`) y `ACCESS_AUD` (el *Application Audience Tag*) en `wrangler.jsonc`. Con eso el Worker valida el header `Cf-Access-Jwt-Assertion` en `/api/*`.
 
