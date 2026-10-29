@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pass-gen",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist/web/browser",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/v1/*"]
+  },
+  "kv_namespaces": [
+    // Crear con: npx wrangler kv namespace create PASSGEN  y pegar el id
+    { "binding": "PASSGEN", "id": "REPLACE_WITH_KV_ID" }
+  ],
+  "vars": {
+    // Opcional: validación extra del JWT de Cloudflare Access
+    "ACCESS_TEAM_DOMAIN": "",
+    "ACCESS_AUD": ""
+  }
+  // Secret requerido: npx wrangler secret put ENCRYPTION_KEY  (32 bytes en base64: openssl rand -base64 32)
+}
