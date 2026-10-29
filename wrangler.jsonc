@@ -11,8 +11,8 @@
     "run_worker_first": ["/api/*", "/v1/*", "/public/*"]
   },
   "kv_namespaces": [
-    // Crear con: npx wrangler kv namespace create PASSGEN  y pegar el id
-    { "binding": "PASSGEN", "id": "REPLACE_WITH_KV_ID" }
+    // Namespace "DB_PASS"; el binding en el código es PASSGEN
+    { "binding": "PASSGEN", "id": "764fe204d37744359aaf52782f0bb1ef" }
   ],
   "vars": {
     // Opcional: validación extra del JWT de Cloudflare Access
