@@ -2,7 +2,18 @@ import { ChangeDetectorRef, Component, inject, input, OnInit, signal } from '@an
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowLeft, lucideNfc, lucidePlus, lucideRefreshCw, lucideSave, lucideTrash2, lucideUpload, lucideX } from '@ng-icons/lucide';
+import {
+  lucideArrowLeft,
+  lucideLocateFixed,
+  lucideMapPin,
+  lucideNfc,
+  lucidePlus,
+  lucideRefreshCw,
+  lucideSave,
+  lucideTrash2,
+  lucideUpload,
+  lucideX,
+} from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -12,7 +23,7 @@ import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
-import { FIELD_SECTIONS, NFC_MAX_BYTES, type FieldSection, type ImageSlot, type TemplateInput } from '../../../../worker/types';
+import { FIELD_SECTIONS, MAX_LOCATIONS, NFC_MAX_BYTES, type FieldSection, type ImageSlot, type TemplateInput } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
@@ -40,7 +51,7 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucideArrowLeft, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -280,6 +291,130 @@ interface ImageSlotInfo {
               </div>
             }
           </section>
+
+          <section hlmCard>
+            <div hlmCardHeader>
+              <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideMapPin" /> Locations</h2>
+              <p hlmCardDescription>
+                Up to {{ maxLocations }} places where the pass becomes relevant. Apple shows it on the lock screen nearby; Google sends a
+                location notification (radius set by Google).
+              </p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-4">
+              @for (l of draft.locations.points; track $index; let i = $index) {
+                <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                  <input hlmInput aria-label="Location name" placeholder="Name" [name]="'loc-name-' + i" [(ngModel)]="l.name" />
+                  <input
+                    hlmInput
+                    type="number"
+                    step="any"
+                    min="-90"
+                    max="90"
+                    required
+                    aria-label="Latitude"
+                    placeholder="Latitude"
+                    [name]="'loc-lat-' + i"
+                    [(ngModel)]="l.latitude"
+                  />
+                  <input
+                    hlmInput
+                    type="number"
+                    step="any"
+                    min="-180"
+                    max="180"
+                    required
+                    aria-label="Longitude"
+                    placeholder="Longitude"
+                    [name]="'loc-lng-' + i"
+                    [(ngModel)]="l.longitude"
+                  />
+                  <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove location" (click)="draft.locations.points.splice(i, 1)">
+                    <ng-icon name="lucideTrash2" />
+                  </button>
+                  <input
+                    hlmInput
+                    class="sm:col-span-2"
+                    maxlength="100"
+                    aria-label="Lock screen text (Apple)"
+                    placeholder="Lock screen text (Apple)"
+                    [name]="'loc-text-' + i"
+                    [(ngModel)]="l.relevantText"
+                  />
+                  <input
+                    hlmInput
+                    type="number"
+                    step="any"
+                    aria-label="Altitude in meters (Apple, optional)"
+                    placeholder="Altitude (m)"
+                    [name]="'loc-alt-' + i"
+                    [(ngModel)]="l.altitude"
+                  />
+                </div>
+              }
+              <div class="flex flex-wrap gap-2">
+                <button hlmBtn variant="outline" size="sm" type="button" [disabled]="draft.locations.points.length >= maxLocations" (click)="addLocation()">
+                  <ng-icon name="lucidePlus" /> Add location
+                </button>
+                <button
+                  hlmBtn
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  [disabled]="locating() || draft.locations.points.length >= maxLocations"
+                  (click)="addCurrentLocation()"
+                >
+                  <ng-icon name="lucideLocateFixed" /> {{ locating() ? 'Locating…' : 'Use my current location' }}
+                </button>
+              </div>
+
+              <div class="flex max-w-xs flex-col gap-2">
+                <label hlmLabel for="maxDistance">Max distance in meters (Apple, optional)</label>
+                <input hlmInput id="maxDistance" name="maxDistance" type="number" min="1" step="1" placeholder="System default" [(ngModel)]="draft.locations.maxDistance" />
+                <p class="text-muted-foreground text-xs">Apple uses the smaller of this value and its own default for the pass type.</p>
+              </div>
+
+              <hlm-separator />
+
+              <div class="flex flex-col gap-3">
+                <div>
+                  <span class="text-sm font-medium">iBeacons (Apple)</span>
+                  <p class="text-muted-foreground text-xs">Up to {{ maxLocations }}. The pass shows up when the iPhone is near one of these beacons.</p>
+                </div>
+                @for (b of draft.locations.beacons; track $index; let i = $index) {
+                  <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[2fr_1fr_1fr_auto]">
+                    <input
+                      hlmInput
+                      class="font-mono text-xs"
+                      required
+                      aria-label="Proximity UUID"
+                      placeholder="Proximity UUID"
+                      [name]="'bcn-uuid-' + i"
+                      [(ngModel)]="b.proximityUUID"
+                    />
+                    <input hlmInput type="number" min="0" max="65535" step="1" aria-label="Major" placeholder="Major" [name]="'bcn-major-' + i" [(ngModel)]="b.major" />
+                    <input hlmInput type="number" min="0" max="65535" step="1" aria-label="Minor" placeholder="Minor" [name]="'bcn-minor-' + i" [(ngModel)]="b.minor" />
+                    <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove beacon" (click)="draft.locations.beacons.splice(i, 1)">
+                      <ng-icon name="lucideTrash2" />
+                    </button>
+                    <input
+                      hlmInput
+                      class="sm:col-span-3"
+                      maxlength="100"
+                      aria-label="Beacon lock screen text"
+                      placeholder="Lock screen text"
+                      [name]="'bcn-text-' + i"
+                      [(ngModel)]="b.relevantText"
+                    />
+                  </div>
+                }
+                <div>
+                  <button hlmBtn variant="outline" size="sm" type="button" [disabled]="draft.locations.beacons.length >= maxLocations" (click)="addBeacon()">
+                    <ng-icon name="lucidePlus" /> Add beacon
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
         </form>
 
         <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-8 xl:self-start">
@@ -325,6 +460,8 @@ export class TemplateEditor implements OnInit {
   protected readonly sections: FieldSection[] = FIELD_SECTIONS;
   protected readonly sectionLabels = SECTION_LABELS;
   protected readonly nfcMaxBytes = NFC_MAX_BYTES;
+  protected readonly maxLocations = MAX_LOCATIONS;
+  protected readonly locating = signal(false);
   protected readonly colorFields: { key: keyof TemplateInput['colors']; label: string }[] = [
     { key: 'background', label: 'Background' },
     { key: 'foreground', label: 'Text' },
@@ -368,6 +505,37 @@ export class TemplateEditor implements OnInit {
     let n = this.draft[s].length + 1;
     while (used.has(`field${n}`)) n++;
     this.draft[s].push({ key: `field${n}`, label: 'LABEL', value: '' });
+  }
+
+  protected addLocation(latitude = 0, longitude = 0) {
+    this.draft.locations.points.push({ name: '', latitude, longitude, relevantText: '' });
+  }
+
+  protected addCurrentLocation() {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not available in this browser');
+      return;
+    }
+    this.locating.set(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        // 6 decimales ≈ 10 cm, suficiente para el radio de relevancia.
+        const round = (n: number) => Math.round(n * 1e6) / 1e6;
+        this.addLocation(round(pos.coords.latitude), round(pos.coords.longitude));
+        this.locating.set(false);
+        // Zoneless: el callback corre fuera de un evento de Angular.
+        this.cdr.markForCheck();
+      },
+      (err) => {
+        this.locating.set(false);
+        toast.error(`Could not get your location: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
+
+  protected addBeacon() {
+    this.draft.locations.beacons.push({ proximityUUID: '', relevantText: '' });
   }
 
   protected removeField(s: FieldSection, i: number) {

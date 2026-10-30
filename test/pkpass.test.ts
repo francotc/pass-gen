@@ -94,3 +94,31 @@ describe('NFC', () => {
     expect(truncateUtf8('ñññ', 5)).toBe('ññ');
   });
 });
+
+describe('ubicaciones', () => {
+  const locations = {
+    points: [
+      { name: 'Centro', latitude: 47.5596, longitude: 7.5886, relevantText: 'Hola {{holderName}}, estás cerca' },
+      { latitude: -34.6037, longitude: -58.3816, altitude: 25 },
+    ],
+    maxDistance: 150,
+    beacons: [{ proximityUUID: 'E2C56DB5-DFFB-48D2-B060-D0F5A71096E0', major: 1, minor: 2, relevantText: 'En caja' }],
+  };
+
+  it('agrega locations, maxDistance y beacons al pass.json', () => {
+    const json = buildPassJson(makeTemplate({ locations }), pass, appleSettings(), 'https://x.dev');
+    expect(json.locations).toEqual([
+      { latitude: 47.5596, longitude: 7.5886, relevantText: 'Hola Ana Pérez, estás cerca' },
+      { latitude: -34.6037, longitude: -58.3816, altitude: 25 },
+    ]);
+    expect(json.maxDistance).toBe(150);
+    expect(json.beacons).toEqual([{ proximityUUID: 'E2C56DB5-DFFB-48D2-B060-D0F5A71096E0', major: 1, minor: 2, relevantText: 'En caja' }]);
+  });
+
+  it('sin ubicaciones no agrega claves', () => {
+    const json = buildPassJson(makeTemplate(), pass, appleSettings(), 'https://x.dev');
+    expect(json).not.toHaveProperty('locations');
+    expect(json).not.toHaveProperty('maxDistance');
+    expect(json).not.toHaveProperty('beacons');
+  });
+});

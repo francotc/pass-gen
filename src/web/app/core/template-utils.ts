@@ -14,6 +14,7 @@ const RESERVED = new Set(['holderName', 'serial']);
 export function placeholderKeys(t: TemplateInput): string[] {
   const texts = [t.logoText, t.barcode.message, t.barcode.altText ?? ''];
   if (t.nfc?.enabled) texts.push(t.nfc.message);
+  for (const l of [...(t.locations?.points ?? []), ...(t.locations?.beacons ?? [])]) texts.push(l.relevantText ?? '');
   for (const s of FIELD_SECTIONS) for (const f of t[s]) texts.push(f.label, f.value);
   const keys = new Set<string>();
   for (const text of texts) for (const m of text.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)) if (!RESERVED.has(m[1])) keys.add(m[1]);
@@ -40,13 +41,15 @@ export function newTemplate(): TemplateInput {
     backFields: [{ key: 'terms', label: 'Terms', value: 'One stamp per visit. Redeemable at any location.' }],
     google: { programName: 'Stamp card', issuerName: '' },
     nfc: { enabled: false, message: '{{serial}}' },
+    locations: { points: [], beacons: [] },
   };
 }
 
 export function toInput(t: TemplateInput & { id?: string; createdAt?: string; updatedAt?: string }): TemplateInput {
   const { id: _i, createdAt: _c, updatedAt: _u, ...input } = t;
   const out = structuredClone(input);
-  // Plantillas guardadas antes de soportar NFC.
+  // Plantillas guardadas antes de soportar NFC y ubicaciones.
   out.nfc ??= { enabled: false, message: '{{serial}}' };
+  out.locations ??= { points: [], beacons: [] };
   return out;
 }

@@ -60,7 +60,10 @@ export interface ImageUrls {
 
 export function buildClass(t: Template, issuerId: string, images: ImageUrls): Record<string, unknown> {
   const smartTap = t.nfc?.enabled ? { enableSmartTap: true, redemptionIssuers: [issuerId] } : {};
-  const base = { id: classId(issuerId, t.id), ...smartTap };
+  // merchantLocations reemplaza al campo `locations` (deprecado, ya no notifica). El radio lo define Google.
+  const points = t.locations?.points ?? [];
+  const merchantLocations = points.length ? { merchantLocations: points.map((l) => ({ latitude: l.latitude, longitude: l.longitude })) } : {};
+  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations };
   if (t.kind === 'generic') return base;
   return JSON.parse(
     JSON.stringify({

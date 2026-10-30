@@ -130,6 +130,20 @@ Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: 
 
 Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
 
+## Ubicaciones
+
+Cada plantilla puede tener hasta 10 ubicaciones (sección *Locations* del editor; «Use my current location» toma la del navegador):
+
+| | Apple Wallet | Google Wallet |
+|---|---|---|
+| Puntos (lat/long) | `locations` del `pass.json`: el pase aparece en la pantalla bloqueada cerca | `merchantLocations` de la class: aviso geolocalizado (radio definido por Google) |
+| Texto | `relevantText` por punto (admite `{{placeholders}}`) | — |
+| Altitud | `altitude` opcional | — |
+| Distancia | `maxDistance` en metros (Apple usa la menor entre esta y la propia) | — |
+| iBeacons | `beacons`: hasta 10 (`proximityUUID`, `major`, `minor`, `relevantText`) | — |
+
+El campo `locations` de Google está deprecado y ya no notifica; por eso se usa `merchantLocations`. Los cambios se aplican a los pases emitidos con **Save and update passes**.
+
 ## NFC
 
 Cada plantilla puede habilitar NFC (sección *NFC* del editor):

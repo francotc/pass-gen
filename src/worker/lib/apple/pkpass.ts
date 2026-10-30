@@ -101,6 +101,19 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
   };
+  const loc = t.locations;
+  if (loc?.points.length) {
+    json.locations = loc.points.map((l) => ({
+      latitude: l.latitude,
+      longitude: l.longitude,
+      ...(l.altitude !== undefined ? { altitude: l.altitude } : {}),
+      ...(l.relevantText ? { relevantText: render(l.relevantText, vars) } : {}),
+    }));
+    if (loc.maxDistance) json.maxDistance = loc.maxDistance;
+  }
+  if (loc?.beacons.length) {
+    json.beacons = loc.beacons.map((b) => ({ ...b, ...(b.relevantText ? { relevantText: render(b.relevantText, vars) } : {}) }));
+  }
   // Apple exige la clave pública de la terminal; sin ella el pase sale sin NFC.
   if (t.nfc?.enabled && t.nfc.encryptionPublicKey) {
     json.nfc = {

@@ -88,3 +88,15 @@ describe('Smart Tap', () => {
     expect(buildObject(makeTemplate(), pass, '338', {})).not.toHaveProperty('smartTapRedemptionValue');
   });
 });
+
+describe('merchantLocations', () => {
+  it('pone las ubicaciones en la class (loyalty y generic)', () => {
+    const locations = { points: [{ latitude: 1.5, longitude: 2.5, relevantText: 'x', name: 'n' }], beacons: [] };
+    expect(buildClass(makeTemplate({ locations }), '338', {})).toMatchObject({ merchantLocations: [{ latitude: 1.5, longitude: 2.5 }] });
+    expect(buildClass(makeTemplate({ locations, kind: 'generic' }), '338', {})).toEqual({
+      id: '338.t1',
+      merchantLocations: [{ latitude: 1.5, longitude: 2.5 }],
+    });
+    expect(buildClass(makeTemplate(), '338', {})).not.toHaveProperty('merchantLocations');
+  });
+});

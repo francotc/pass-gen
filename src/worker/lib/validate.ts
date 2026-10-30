@@ -4,7 +4,9 @@ import {
   type MessageTranslation,
   type NotificationInput,
   type NotificationTarget,
+  MAX_LOCATIONS,
   NFC_MAX_BYTES,
+  type LocationSettings,
   type NfcSettings,
   type BarcodeFormat,
   type Field,
@@ -58,6 +60,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const images = obj(b.images);
   const google = obj(b.google);
   const nfc = parseNfc(b.nfc);
+  const locations = parseLocations(b.locations);
 
   const out = {
     name,
@@ -74,6 +77,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     barcode: { format, message: str(barcode.message, 500), altText: str(barcode.altText, 100) || undefined },
     google: { programName: str(google.programName, 120) || undefined, issuerName: str(google.issuerName, 120) || undefined },
     nfc,
+    locations,
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
   return out;
@@ -88,6 +92,62 @@ function isP256Spki(b64: string): boolean {
   } catch {
     return false;
   }
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function num(v: unknown, name: string, min: number, max: number, required = true): number | undefined {
+  if (v === undefined || v === null || v === '') {
+    if (required) throw new ValidationError(`${name} is required`);
+    return undefined;
+  }
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) throw new ValidationError(`${name} must be between ${min} and ${max}`);
+  return n;
+}
+
+function int(v: unknown, name: string, min: number, max: number): number | undefined {
+  const n = num(v, name, min, max, false);
+  if (n !== undefined && !Number.isInteger(n)) throw new ValidationError(`${name} must be an integer`);
+  return n;
+}
+
+/** Quita claves undefined para no guardar ruido en KV. */
+const compact = <T extends object>(o: T): T => JSON.parse(JSON.stringify(o));
+
+function parseLocations(v: unknown): LocationSettings {
+  const l = obj(v);
+  const list = (x: unknown, name: string) => {
+    if (x === undefined) return [];
+    if (!Array.isArray(x)) throw new ValidationError(`${name} must be a list`);
+    if (x.length > MAX_LOCATIONS) throw new ValidationError(`Up to ${MAX_LOCATIONS} ${name} are allowed`);
+    return x;
+  };
+  const points = list(l.points, 'locations').map((raw, i) => {
+    const p = obj(raw);
+    const n = `Location ${i + 1}`;
+    return compact({
+      name: str(p.name, 80).trim() || undefined,
+      latitude: num(p.latitude, `${n}: latitude`, -90, 90)!,
+      longitude: num(p.longitude, `${n}: longitude`, -180, 180)!,
+      altitude: num(p.altitude, `${n}: altitude`, -1000, 10000, false),
+      relevantText: str(p.relevantText, 100).trim() || undefined,
+    });
+  });
+  const beacons = list(l.beacons, 'beacons').map((raw, i) => {
+    const b = obj(raw);
+    const n = `Beacon ${i + 1}`;
+    const proximityUUID = str(b.proximityUUID, 36).trim();
+    if (!UUID.test(proximityUUID)) throw new ValidationError(`${n}: proximity UUID must be a UUID`);
+    return compact({
+      proximityUUID: proximityUUID.toUpperCase(),
+      major: int(b.major, `${n}: major`, 0, 65535),
+      minor: int(b.minor, `${n}: minor`, 0, 65535),
+      relevantText: str(b.relevantText, 100).trim() || undefined,
+    });
+  });
+  const maxDistance = int(l.maxDistance, 'Max distance', 1, 100000);
+  return compact({ points, beacons, maxDistance });
 }
 
 function parseNfc(v: unknown): NfcSettings {

@@ -37,6 +37,36 @@ export interface NfcSettings {
 }
 
 export const NFC_MAX_BYTES = 64;
+export const MAX_LOCATIONS = 10;
+
+/** Punto donde el pase se vuelve relevante (Apple: pantalla bloqueada; Google: aviso geolocalizado). */
+export interface PassLocation {
+  /** Solo para identificarla en el admin. */
+  name?: string;
+  latitude: number;
+  longitude: number;
+  /** Apple: metros sobre el nivel del mar. */
+  altitude?: number;
+  /** Apple: texto en la pantalla bloqueada; admite {{placeholders}}. */
+  relevantText?: string;
+}
+
+/** Apple: iBeacon que vuelve relevante el pase. */
+export interface PassBeacon {
+  proximityUUID: string;
+  major?: number;
+  minor?: number;
+  relevantText?: string;
+}
+
+export interface LocationSettings {
+  /** Hasta 10; Apple las usa en `locations` y Google en `merchantLocations` de la class. */
+  points: PassLocation[];
+  /** Apple: distancia máxima en metros (se usa la menor entre esta y la del sistema). */
+  maxDistance?: number;
+  /** Apple: hasta 10 iBeacons. */
+  beacons: PassBeacon[];
+}
 
 export interface Template {
   id: string;
@@ -55,6 +85,7 @@ export interface Template {
   backFields: Field[];
   google: { programName?: string; issuerName?: string };
   nfc: NfcSettings;
+  locations: LocationSettings;
   createdAt: string;
   updatedAt: string;
 }

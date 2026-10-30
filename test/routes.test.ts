@@ -69,6 +69,21 @@ describe('plantillas y pases', () => {
     expect(body.sync).toMatchObject({ apple: { skipped: 'Apple not configured' } });
   });
 
+  it('valida ubicaciones', async () => {
+    const post = (locations: unknown) => json('/api/templates', 'POST', { ...templateInput, locations });
+    const err = async (res: Response) => ((await res.json()) as { error: string }).error;
+    expect(await err(await post({ points: [{ latitude: 91, longitude: 0 }] }))).toBe('Location 1: latitude must be between -90 and 90');
+    expect(await err(await post({ points: Array.from({ length: 11 }, () => ({ latitude: 0, longitude: 0 })) }))).toBe('Up to 10 locations are allowed');
+    expect(await err(await post({ beacons: [{ proximityUUID: 'nope' }] }))).toBe('Beacon 1: proximity UUID must be a UUID');
+    expect(await err(await post({ beacons: [{ proximityUUID: 'e2c56db5-dffb-48d2-b060-d0f5a71096e0', major: 1.5 }] }))).toBe('Beacon 1: major must be an integer');
+    const ok = await post({ points: [{ latitude: '47.5', longitude: '7.5', name: ' Shop ' }], maxDistance: 200, beacons: [{ proximityUUID: 'e2c56db5-dffb-48d2-b060-d0f5a71096e0' }] });
+    expect(((await ok.json()) as Template).locations).toEqual({
+      points: [{ name: 'Shop', latitude: 47.5, longitude: 7.5 }],
+      beacons: [{ proximityUUID: 'E2C56DB5-DFFB-48D2-B060-D0F5A71096E0' }],
+      maxDistance: 200,
+    });
+  });
+
   it('valida NFC', async () => {
     const bad = await json('/api/templates', 'POST', { ...templateInput, nfc: { enabled: true, message: 'x'.repeat(65) } });
     expect(bad.status).toBe(400);
