@@ -52,7 +52,7 @@ npm install
    - `ACCESS_TEAM_DOMAIN` y `ACCESS_AUD` ya están en `wrangler.jsonc`: el Worker valida el header `Cf-Access-Jwt-Assertion` en `/api/*`. Si cambiás de aplicación de Access, actualizá el *Application Audience Tag*.
 
 5. Cargar credenciales en **Ajustes**:
-   - **Apple**: el `.p12` del Pass Type ID con su contraseña (o certificado + clave en PEM) y el certificado [WWDR G4](https://www.apple.com/certificateauthority/). Team ID y Pass Type ID se leen del certificado. Para el push, la clave `.p8` de APNs con su Key ID.
+   - **Apple** ([cómo conseguir cada certificado](docs/apple-certificates.md)): el `.p12` del Pass Type ID con su contraseña (o certificado + clave en PEM) y el certificado [WWDR G4](https://www.apple.com/certificateauthority/). Team ID y Pass Type ID se leen del certificado. Para el push, la clave `.p8` de APNs con su Key ID.
    - **Google**: Issuer ID (Google Pay & Wallet Console) y el JSON de un service account con acceso de emisor.
 
 ### Push de Apple con certificado (mTLS, opcional)
