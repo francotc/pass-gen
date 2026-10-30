@@ -1,5 +1,9 @@
 import {
   FIELD_SECTIONS,
+  type AppleMessagePlacement,
+  type MessageTranslation,
+  type NotificationInput,
+  type NotificationTarget,
   NFC_MAX_BYTES,
   type NfcSettings,
   type BarcodeFormat,
@@ -125,4 +129,67 @@ export function parseData(v: unknown): Record<string, string> {
       .filter(([k]) => /^[\w-]{1,64}$/.test(k))
       .map(([k, val]) => [k, str(typeof val === 'number' ? String(val) : val, 2000)]),
   );
+}
+
+const PLACEMENTS: AppleMessagePlacement[] = ['backFields', 'secondaryFields', 'auxiliaryFields'];
+const LANG = /^[a-zA-Z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+const PLACEHOLDER = /\{\{[^}]*\}\}/;
+
+function isoDate(v: unknown, name: string): string | undefined {
+  const s = str(v, 40).trim();
+  if (!s) return undefined;
+  if (Number.isNaN(Date.parse(s))) throw new ValidationError(`Invalid date: ${name}`);
+  return new Date(s).toISOString();
+}
+
+export function parseNotificationInput(body: unknown): NotificationInput {
+  const b = obj(body);
+  const t = obj(b.target);
+  let target: NotificationTarget;
+  if (t.type === 'pass' && str(t.serial, 64)) target = { type: 'pass', serial: str(t.serial, 64) };
+  else if (t.type === 'template' && str(t.templateId, 64)) target = { type: 'template', templateId: str(t.templateId, 64) };
+  else throw new ValidationError('Invalid target: choose a pass or a template');
+
+  const header = str(b.header, 100).trim();
+  const text = str(b.body, 1000).trim();
+  if (!header) throw new ValidationError('Header is required');
+  if (!text) throw new ValidationError('Message is required');
+
+  const link = str(b.link, 500).trim() || undefined;
+  if (link && !/^https?:\/\/\S+$/.test(link)) throw new ValidationError('Link must be an http(s) URL');
+
+  if (b.translations !== undefined && !Array.isArray(b.translations)) throw new ValidationError('translations must be a list');
+  const translations: MessageTranslation[] = ((b.translations as unknown[]) ?? []).slice(0, 20).map((raw, i) => {
+    const tr = obj(raw);
+    const language = str(tr.language, 20).trim();
+    if (!LANG.test(language)) throw new ValidationError(`Translation ${i + 1}: invalid language tag`);
+    const trHeader = str(tr.header, 100).trim();
+    const trBody = str(tr.body, 1000).trim();
+    if (!trHeader || !trBody) throw new ValidationError(`Translation ${i + 1}: header and message are required`);
+    return { language, header: trHeader, body: trBody };
+  });
+
+  const a = obj(b.apple);
+  const placement = (a.placement ?? 'backFields') as AppleMessagePlacement;
+  if (!PLACEMENTS.includes(placement)) throw new ValidationError('Invalid Apple placement');
+  const changeMessage = str(a.changeMessage, 200).trim() || '%@';
+  if (!changeMessage.includes('%@')) throw new ValidationError('Apple notification text must include %@ (the message)');
+
+  const g = obj(b.google);
+  const scope = g.scope === 'class' ? 'class' : 'object';
+  if (scope === 'class') {
+    if (target.type !== 'template') throw new ValidationError('Google class messages require a template target');
+    const texts = [header, text, ...translations.flatMap((tr) => [tr.header, tr.body])];
+    if (texts.some((x) => PLACEHOLDER.test(x))) {
+      throw new ValidationError('Google class messages are shared by all holders and cannot use placeholders');
+    }
+  }
+  const displayStart = isoDate(g.displayStart, 'display start');
+  const displayEnd = isoDate(g.displayEnd, 'display end');
+  if (displayStart && displayEnd && displayEnd <= displayStart) throw new ValidationError('Display end must be after start');
+
+  const apple = { enabled: a.enabled === true, placement, changeMessage };
+  const google = { enabled: g.enabled === true, notify: g.notify !== false, scope, displayStart, displayEnd } as NotificationInput['google'];
+  if (!apple.enabled && !google.enabled) throw new ValidationError('Enable Apple, Google or both');
+  return { target, header, body: text, link, translations, apple, google };
 }

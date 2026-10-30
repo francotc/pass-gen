@@ -8,6 +8,7 @@ export const routes: Routes = [
   { path: 'templates', loadComponent: () => import('./pages/templates/template-list').then((m) => m.TemplateList) },
   { path: 'templates/new', loadComponent: () => import('./pages/templates/template-editor').then((m) => m.TemplateEditor) },
   { path: 'templates/:id', loadComponent: () => import('./pages/templates/template-editor').then((m) => m.TemplateEditor) },
+  { path: 'notifications', loadComponent: () => import('./pages/notifications/notifications').then((m) => m.Notifications) },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings').then((m) => m.Settings) },
   { path: '**', redirectTo: 'passes' },
 ];

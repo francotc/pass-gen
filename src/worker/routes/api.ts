@@ -5,8 +5,9 @@ import { buildPkpass } from '../lib/apple/pkpass';
 import { randomToken } from '../lib/crypto';
 import { saveLink } from '../lib/google/wallet';
 import { Store } from '../lib/store';
+import { sendNotification } from '../lib/notifications';
 import { publishTemplate, syncPass, type Ctx } from '../lib/sync';
-import { parseData, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
+import { parseData, parseNotificationInput, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
 import type { AppleSettings, GoogleSettings, ImageSlot, Pass, SettingsStatus, Template } from '../types';
 import { accessGuard } from '../middleware/access';
 
@@ -220,7 +221,7 @@ api.put('/passes/:serial', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
   if (!pass) return c.json({ error: 'Not found' }, 404);
-  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean }>();
+  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean; notify?: boolean }>();
   if (body.holderName !== undefined) {
     const name = text(body.holderName);
     if (!name) throw new ValidationError('Holder name is required');
@@ -230,7 +231,8 @@ api.put('/passes/:serial', async (c) => {
   if (typeof body.voided === 'boolean') pass.voided = body.voided;
   pass.updatedAt = new Date().toISOString();
   await s.putPass(pass);
-  const sync = await syncPass(ctxOf(c), pass.serial);
+  // notify: pide a Google la notificación de cambio de campo (saldo/nivel en loyalty).
+  const sync = await syncPass(ctxOf(c), pass.serial, body.notify === true);
   return c.json({ pass: await s.getPass(pass.serial), sync });
 });
 
@@ -263,6 +265,17 @@ api.post('/passes/:serial/sync', async (c) => {
   const s = store(c);
   if (!(await s.getPass(c.req.param('serial')))) return c.json({ error: 'Not found' }, 404);
   return c.json(await syncPass(ctxOf(c), c.req.param('serial')));
+});
+
+// Notificaciones
+
+api.get('/notifications', async (c) => c.json(await store(c).listNotifications()));
+
+api.post('/notifications', async (c) => c.json(await sendNotification(ctxOf(c), parseNotificationInput(await c.req.json())), 201));
+
+api.get('/notifications/:id', async (c) => {
+  const n = await store(c).getNotification(c.req.param('id'));
+  return n ? c.json(n) : c.json({ error: 'Not found' }, 404);
 });
 
 api.all('*', (c) => c.json({ error: 'Not found' }, 404));

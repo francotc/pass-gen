@@ -1,4 +1,4 @@
-import type { AppleSettings, GoogleSettings, ImageMeta, Pass, Template } from '../types';
+import type { AppleSettings, GoogleSettings, ImageMeta, NotificationRecord, Pass, Template } from '../types';
 import { decryptJson, encryptJson } from './crypto';
 
 export interface TemplateSummary {
@@ -14,6 +14,17 @@ export interface PassSummary {
   holderName: string;
   updatedAt: string;
   voided: boolean;
+}
+
+export interface NotificationSummary {
+  id: string;
+  createdAt: string;
+  header: string;
+  target: NotificationRecord['target'];
+  passes: number;
+  apple: boolean;
+  google: boolean;
+  failed: number;
 }
 
 export interface Registration {
@@ -113,6 +124,31 @@ export class Store {
       voided: p.voided,
     };
     await this.kv.put(`pass:${p.serial}`, JSON.stringify(p), { metadata });
+  }
+
+  // Notificaciones
+
+  async listNotifications(): Promise<NotificationSummary[]> {
+    const keys = await this.listAll<NotificationSummary>('notification:');
+    return keys.flatMap((k) => (k.metadata ? [k.metadata] : []));
+  }
+
+  getNotification(id: string): Promise<NotificationRecord | null> {
+    return this.kv.get<NotificationRecord>(`notification:${id}`, 'json');
+  }
+
+  async putNotification(n: NotificationRecord): Promise<void> {
+    const metadata: NotificationSummary = {
+      id: n.id,
+      createdAt: n.createdAt,
+      header: n.header.slice(0, 100),
+      target: n.target,
+      passes: n.result.passes,
+      apple: n.apple.enabled,
+      google: n.google.enabled,
+      failed: n.result.apple.failed + n.result.google.failed,
+    };
+    await this.kv.put(`notification:${n.id}`, JSON.stringify(n), { metadata });
   }
 
   // Registros de dispositivos (web service de Apple)

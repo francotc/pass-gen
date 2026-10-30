@@ -28,7 +28,7 @@ const safeId = (s: string) => s.replace(/[^\w.-]/g, '_');
 export const classId = (issuerId: string, templateId: string) => `${issuerId}.${safeId(templateId)}`;
 export const objectId = (issuerId: string, serial: string) => `${issuerId}.${safeId(serial)}`;
 
-const localized = (value: string) => ({ defaultValue: { language: 'es', value } });
+const localized = (value: string) => ({ defaultValue: { language: 'en', value } });
 const image = (uri: string | undefined, description: string) =>
   uri ? { sourceUri: { uri }, contentDescription: localized(description) } : undefined;
 
@@ -128,10 +128,43 @@ export async function upsert(token: string, resource: Resource, body: Record<str
   const id = encodeURIComponent(String(body.id));
   const existing = await fetch(`${API}/${resource}/${id}`, { headers });
   if (existing.status !== 404 && !existing.ok) throw await asError(existing);
+  if (existing.ok && !('messages' in body)) {
+    // PUT reemplaza el recurso entero: conservar los mensajes enviados con addMessage.
+    const current = (await existing.json()) as { messages?: unknown[] };
+    if (current.messages?.length) body = { ...body, messages: current.messages };
+  }
   const res = existing.ok
     ? await fetch(`${API}/${resource}/${id}`, { method: 'PUT', headers, body: JSON.stringify(body) })
     : await fetch(`${API}/${resource}`, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) throw await asError(res);
+}
+
+export interface GoogleMessage {
+  id: string;
+  header: string;
+  body: string;
+  messageType: 'TEXT' | 'TEXT_AND_NOTIFY';
+  localizedHeader?: Record<string, unknown>;
+  localizedBody?: Record<string, unknown>;
+  displayInterval?: { start?: { date: string }; end?: { date: string } };
+}
+
+/** Agrega un mensaje a un object (un pase) o a una class (todos sus titulares). */
+export async function addMessage(token: string, resource: Resource, resourceId: string, message: GoogleMessage): Promise<void> {
+  const res = await fetch(`${API}/${resource}/${encodeURIComponent(resourceId)}/addMessage`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw await asError(res);
+}
+
+/** Arma un LocalizedString de Google a partir del valor por defecto y sus traducciones. */
+export function localizedString(defaultValue: string, translations: { language: string; value: string }[]) {
+  return {
+    defaultValue: { language: 'en', value: defaultValue },
+    ...(translations.length ? { translatedValues: translations.map((t) => ({ language: t.language, value: t.value })) } : {}),
+  };
 }
 
 async function asError(res: Response): Promise<GoogleError> {

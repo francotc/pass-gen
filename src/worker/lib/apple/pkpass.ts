@@ -1,6 +1,6 @@
 import { zipSync } from 'fflate';
 import forge from 'node-forge';
-import { NFC_MAX_BYTES, type AppleSettings, type BarcodeFormat, type Field, type FieldSection, type ImageSlot, type Pass, type Template } from '../../types';
+import { NFC_MAX_BYTES, type AppleSettings, type BarcodeFormat, type Field, type FieldSection, type ImageSlot, type Pass, type PassMessage, type Template } from '../../types';
 import { b64ToBytes, sha1Hex } from '../crypto';
 import { passVars, render } from '../render';
 
@@ -34,6 +34,27 @@ function renderFields(fields: Field[], vars: Record<string, string>) {
   }));
 }
 
+/** Clave fija del campo de mensaje; no puede chocar con las claves de la plantilla (validadas a [\w-]). */
+export const MESSAGE_FIELD_KEY = 'pg.message';
+
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * Campo que lleva el mensaje. Apple notifica en la pantalla bloqueada cuando cambia el valor
+ * de un campo con changeMessage; %@ se reemplaza por el valor nuevo.
+ */
+function messageField(m: PassMessage) {
+  const linkable = m.link && m.placement === 'backFields';
+  return {
+    key: MESSAGE_FIELD_KEY,
+    label: m.header,
+    value: m.body,
+    changeMessage: m.changeMessage,
+    // Solo el reverso muestra links; attributedValue reemplaza a value en pantalla.
+    ...(linkable ? { attributedValue: `${escapeHtml(m.body)} <a href="${escapeHtml(m.link!)}">${escapeHtml(m.link!)}</a>` } : {}),
+  };
+}
+
 /** Recorta a un máximo de bytes UTF-8 sin cortar caracteres. */
 export function truncateUtf8(s: string, max: number): string {
   const enc = new TextEncoder();
@@ -51,6 +72,10 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
   const style: Record<string, unknown> = {};
   for (const sec of SECTIONS) {
     if (t[sec].length) style[sec] = renderFields(t[sec], vars);
+  }
+  if (p.message) {
+    const sec = p.message.placement;
+    style[sec] = [...((style[sec] as unknown[] | undefined) ?? []), messageField(p.message)];
   }
   const json: Record<string, unknown> = {
     formatVersion: 1,

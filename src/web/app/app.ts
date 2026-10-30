@@ -1,13 +1,13 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideLayoutTemplate, lucideSettings, lucideWallet } from '@ng-icons/lucide';
+import { lucideBell, lucideLayoutTemplate, lucideSettings, lucideWallet } from '@ng-icons/lucide';
 import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIcon, HlmToasterImports],
-  providers: [provideIcons({ lucideWallet, lucideLayoutTemplate, lucideSettings })],
+  providers: [provideIcons({ lucideWallet, lucideLayoutTemplate, lucideBell, lucideSettings })],
   template: `
     <div class="flex min-h-dvh flex-col md:flex-row">
       <aside class="border-border bg-sidebar flex shrink-0 flex-col gap-1 border-b p-3 md:w-60 md:border-r md:border-b-0">
@@ -41,6 +41,7 @@ export class App {
   protected readonly nav = [
     { path: '/passes', label: 'Passes', icon: 'lucideWallet' },
     { path: '/templates', label: 'Templates', icon: 'lucideLayoutTemplate' },
+    { path: '/notifications', label: 'Notifications', icon: 'lucideBell' },
     { path: '/settings', label: 'Settings', icon: 'lucideSettings' },
   ];
 }

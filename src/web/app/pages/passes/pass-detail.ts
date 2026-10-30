@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
+  lucideBell,
   lucideCopy,
   lucideDownload,
   lucideExternalLink,
@@ -39,7 +40,7 @@ import { PassPreview } from '../../shared/pass-preview';
     HlmLabelImports,
     HlmSwitchImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave })],
+  providers: [provideIcons({ lucideArrowLeft, lucideBell, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -77,7 +78,18 @@ import { PassPreview } from '../../shared/pass-preview';
                   <input hlmInput [id]="'data-' + k" [name]="'data-' + k" [(ngModel)]="data[k]" />
                 </div>
               }
-              <label class="flex items-center justify-between gap-3 text-sm" for="voided">
+              @if (template()!.kind === 'loyalty') {
+                <label class="flex items-center justify-between gap-3 text-sm" for="notify">
+                  <span>
+                    <span class="font-medium">Notify Google holders</span>
+                    <span class="text-muted-foreground block text-xs">
+                      Push when the balance changes (max 3 per pass every 24 h). Apple notifies fields that have a change message.
+                    </span>
+                  </span>
+                  <hlm-switch id="notify" name="notify" [(ngModel)]="notify" />
+                </label>
+              }
+                            <label class="flex items-center justify-between gap-3 text-sm" for="voided">
                 <span>
                   <span class="font-medium">Void pass</span>
                   <span class="text-muted-foreground block text-xs">Marks it as invalid in both wallets.</span>
@@ -88,8 +100,22 @@ import { PassPreview } from '../../shared/pass-preview';
             <div hlmCardFooter class="flex flex-wrap gap-2">
               <button hlmBtn type="submit" [disabled]="busy()"><ng-icon name="lucideSave" /> {{ busy() ? 'Saving…' : 'Save and update' }}</button>
               <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="resync()"><ng-icon name="lucideRefreshCw" /> Retry sync</button>
+              <a hlmBtn variant="ghost" routerLink="/notifications" [queryParams]="{ pass: pass()!.serial }"><ng-icon name="lucideBell" /> Send notification</a>
             </div>
           </form>
+
+          @if (pass()!.message; as m) {
+            <section hlmCard>
+              <div hlmCardHeader>
+                <h2 hlmCardTitle>Current Apple message</h2>
+                <p hlmCardDescription>Sent {{ m.sentAt | date: 'dd.MM.yyyy HH:mm' }}. It stays on the pass until the next notification.</p>
+              </div>
+              <div hlmCardContent class="text-sm">
+                <div class="font-medium">{{ m.header }}</div>
+                <div class="text-muted-foreground whitespace-pre-line">{{ m.body }}</div>
+              </div>
+            </section>
+          }
 
           <section hlmCard>
             <div hlmCardHeader>
@@ -144,6 +170,7 @@ export class PassDetail implements OnInit {
   protected holderName = '';
   protected data: Record<string, string> = {};
   protected voided = false;
+  protected notify = false;
 
   protected keys() {
     const t = this.template();
@@ -173,7 +200,7 @@ export class PassDetail implements OnInit {
   protected async save() {
     this.busy.set(true);
     try {
-      const res = await this.api.updatePass(this.serial(), { holderName: this.holderName, data: this.data, voided: this.voided });
+      const res = await this.api.updatePass(this.serial(), { holderName: this.holderName, data: this.data, voided: this.voided, notify: this.notify });
       this.apply(res.pass);
       const msg = syncMessage(res.sync);
       if (msg.ok) toast.success('Pass updated', { description: msg.text });

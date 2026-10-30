@@ -26,8 +26,10 @@ export function imageUrls(t: Template, origin: string): ImageUrls {
   return { logo: url(t.images.logo ?? t.images.icon), hero: url(t.images.hero ?? t.images.strip) };
 }
 
-async function googleUpsertObject(token: string, gs: GoogleSettings, t: Template, p: Pass, origin: string) {
+async function googleUpsertObject(token: string, gs: GoogleSettings, t: Template, p: Pass, origin: string, notify = false) {
   const obj = buildObject(t, p, gs.issuerId, imageUrls(t, origin));
+  // Notificación de cambio de campo (saldo, nivel); el flag es efímero y solo existe en loyalty.
+  if (notify && t.kind === 'loyalty') obj.notifyPreference = 'NOTIFY_ON_UPDATE';
   await upsert(token, objectResource(t.kind), obj);
   return String(obj.id);
 }
@@ -36,7 +38,7 @@ export async function googleUpsertClass(token: string, gs: GoogleSettings, t: Te
   await upsert(token, classResource(t.kind), buildClass(t, gs.issuerId, imageUrls(t, origin)));
 }
 
-async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]): Promise<SyncResult['apple']> {
+export async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]): Promise<SyncResult['apple']> {
   const devices = (await Promise.all(serials.map((s) => ctx.store.devicesForPass(as.passTypeId, s).then((d) => d.map((x) => ({ ...x, serial: s })))))).flat();
   if (!devices.length) return { sent: 0, failed: 0 };
   const res = await pushUpdate(as, [...new Set(devices.map((d) => d.pushToken))], { mtls: ctx.env.APNS_CERT });
@@ -46,8 +48,11 @@ async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]): Promis
   return { sent: res.sent, failed: res.failed, ...(res.errors.length ? { skipped: res.errors[0] } : {}) };
 }
 
-/** Sincroniza un pase con Google (upsert de class + object) y avisa a los dispositivos Apple. */
-export async function syncPass(ctx: Ctx, serial: string): Promise<SyncResult> {
+/**
+ * Sincroniza un pase con Google (upsert de class + object) y avisa a los dispositivos Apple.
+ * `notifyGoogle` pide a Google que notifique el cambio de campos permitidos (máx. 3 por pase cada 24 h).
+ */
+export async function syncPass(ctx: Ctx, serial: string, notifyGoogle = false): Promise<SyncResult> {
   const pass = await ctx.store.getPass(serial);
   if (!pass) throw new Error('Pass not found');
   const tpl = await ctx.store.getTemplate(pass.templateId);
@@ -63,7 +68,7 @@ export async function syncPass(ctx: Ctx, serial: string): Promise<SyncResult> {
     try {
       const token = await getAccessToken(gs);
       await googleUpsertClass(token, gs, tpl, ctx.origin);
-      pass.google = { objectId: await googleUpsertObject(token, gs, tpl, pass, ctx.origin), synced: true };
+      pass.google = { objectId: await googleUpsertObject(token, gs, tpl, pass, ctx.origin, notifyGoogle), synced: true };
       result.google = { ok: true };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);

@@ -111,6 +111,25 @@ test/                  Vitest en el runtime de Workers (@cloudflare/vitest-plugi
 docs/superpowers/      spec y plan
 ```
 
+## Notificaciones
+
+Pantalla *Notifications*: envía un mensaje a un pase o a todos los pases activos de una plantilla.
+
+| Elemento | Apple Wallet | Google Wallet |
+|---|---|---|
+| Título y mensaje (con `{{placeholders}}`) | Campo `pg.message` del pase: label = título, value = mensaje | `addMessage` con `header` y `body` |
+| Texto de la notificación | `changeMessage` (`%@` = mensaje, admite `{{header}}`) | El propio mensaje |
+| Push | Push vacío por APNs; el iPhone notifica porque el campo cambió | `messageType: TEXT_AND_NOTIFY` (o `TEXT` silencioso). Máx. 3 por pase cada 24 h |
+| Link | `attributedValue` con `<a href>` (solo en el reverso) | Se agrega al final del mensaje |
+| Ubicación | Reverso, fila secundaria o auxiliar del frente | Detalle del pase |
+| Traducciones | — | `localizedHeader` / `localizedBody` |
+| Vigencia | El mensaje queda hasta el próximo | `displayInterval` (desde / hasta) |
+| Alcance plantilla | Un mensaje por pase | Por pase (con placeholders) o uno solo en la class (sin placeholders) |
+
+Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: envía `notifyPreference: NOTIFY_ON_UPDATE` y Google notifica el cambio de saldo. En Apple, los campos de la plantilla con *change message* notifican solos al cambiar.
+
+Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
+
 ## NFC
 
 Cada plantilla puede habilitar NFC (sección *NFC* del editor):

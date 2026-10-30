@@ -3,6 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import type {
   ImageMeta,
+  NotificationInput,
+  NotificationRecord,
   Pass,
   PassInput,
   SettingsStatus,
@@ -24,6 +26,17 @@ export interface PassSummary {
   holderName: string;
   updatedAt: string;
   voided: boolean;
+}
+
+export interface NotificationSummary {
+  id: string;
+  createdAt: string;
+  header: string;
+  target: NotificationRecord['target'];
+  passes: number;
+  apple: boolean;
+  google: boolean;
+  failed: number;
 }
 
 export interface PassWithSync {
@@ -101,7 +114,7 @@ export class Api {
   issuePass(input: PassInput) {
     return firstValueFrom(this.http.post<PassWithSync>('/api/passes', input));
   }
-  updatePass(serial: string, body: { holderName?: string; data?: Record<string, string>; voided?: boolean }) {
+  updatePass(serial: string, body: { holderName?: string; data?: Record<string, string>; voided?: boolean; notify?: boolean }) {
     return firstValueFrom(this.http.put<PassWithSync>(`/api/passes/${encodeURIComponent(serial)}`, body));
   }
   syncPass(serial: string) {
@@ -113,6 +126,17 @@ export class Api {
   pkpassUrl(serial: string) {
     return `/api/passes/${encodeURIComponent(serial)}/pkpass`;
   }
+  // Notificaciones
+  notifications() {
+    return this.get<NotificationSummary[]>('/api/notifications');
+  }
+  notification(id: string) {
+    return this.get<NotificationRecord>(`/api/notifications/${encodeURIComponent(id)}`);
+  }
+  sendNotification(input: NotificationInput) {
+    return firstValueFrom(this.http.post<NotificationRecord>('/api/notifications', input));
+  }
+
   publicPkpassUrl(pass: Pass) {
     return `${location.origin}/public/passes/${encodeURIComponent(pass.serial)}/${pass.authToken}.pkpass`;
   }

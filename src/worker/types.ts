@@ -71,6 +71,19 @@ export interface Pass {
   updatedAt: string;
   voided: boolean;
   google: { objectId?: string; synced: boolean; error?: string };
+  /** Último mensaje enviado; en Apple se muestra como un campo del pase. */
+  message?: PassMessage;
+}
+
+/** Mensaje ya renderizado para un pase (placeholders resueltos). */
+export interface PassMessage {
+  notificationId: string;
+  header: string;
+  body: string;
+  link?: string;
+  placement: AppleMessagePlacement;
+  changeMessage: string;
+  sentAt: string;
 }
 
 export interface PassInput {
@@ -116,4 +129,58 @@ export interface ImageMeta {
   id: string;
   contentType: string;
   size: number;
+}
+
+// Notificaciones
+
+export type AppleMessagePlacement = 'backFields' | 'secondaryFields' | 'auxiliaryFields';
+export type GoogleMessageScope = 'object' | 'class';
+
+export type NotificationTarget = { type: 'pass'; serial: string } | { type: 'template'; templateId: string };
+
+export interface MessageTranslation {
+  /** BCP 47, ej. "en-US", "de". */
+  language: string;
+  header: string;
+  body: string;
+}
+
+export interface NotificationInput {
+  target: NotificationTarget;
+  /** Admiten {{placeholders}} (salvo Google con scope "class"). */
+  header: string;
+  body: string;
+  /** URL opcional: link en el reverso (Apple) y al final del cuerpo (Google). */
+  link?: string;
+  /** Traducciones (solo Google; Apple usa header/body). */
+  translations: MessageTranslation[];
+  apple: {
+    enabled: boolean;
+    /** Dónde se muestra el campo del mensaje. Los links solo funcionan en el reverso. */
+    placement: AppleMessagePlacement;
+    /** Texto de la notificación; %@ se reemplaza por el cuerpo. Admite {{header}}. */
+    changeMessage: string;
+  };
+  google: {
+    enabled: boolean;
+    /** TEXT_AND_NOTIFY (push, máx. 3 por pase cada 24 h) o TEXT (solo aparece en el pase). */
+    notify: boolean;
+    /** object: un mensaje por pase; class: un mensaje para todos los titulares de la plantilla. */
+    scope: GoogleMessageScope;
+    /** ISO 8601; vacío = desde ya / sin vencimiento. */
+    displayStart?: string;
+    displayEnd?: string;
+  };
+}
+
+export interface NotificationResult {
+  passes: number;
+  apple: { updated: number; sent: number; failed: number; skipped?: string };
+  google: { sent: number; failed: number; errors: string[]; skipped?: string };
+}
+
+export interface NotificationRecord extends NotificationInput {
+  id: string;
+  createdAt: string;
+  result: NotificationResult;
 }
