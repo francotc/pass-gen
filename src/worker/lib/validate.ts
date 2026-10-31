@@ -4,7 +4,13 @@ import {
   type MessageTranslation,
   type NotificationInput,
   type NotificationTarget,
+  FEATURED_ACTIONS,
+  MAX_FEATURED_ACTIONS,
+  MAX_LINKS,
+  MAX_MODULES,
   MAX_LOCATIONS,
+  type ActionSettings,
+  type FeaturedActionType,
   NFC_MAX_BYTES,
   type LocationSettings,
   type NfcSettings,
@@ -20,7 +26,7 @@ export class ValidationError extends Error {}
 
 const KINDS: PassKind[] = ['loyalty', 'generic'];
 const FORMATS: BarcodeFormat[] = ['QR', 'PDF417', 'AZTEC', 'CODE128'];
-const SLOTS: ImageSlot[] = ['icon', 'logo', 'strip', 'hero'];
+const SLOTS: ImageSlot[] = ['icon', 'logo', 'strip', 'hero', 'background'];
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -61,6 +67,8 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const google = obj(b.google);
   const nfc = parseNfc(b.nfc);
   const locations = parseLocations(b.locations);
+  const actions = parseActions(b.actions);
+  const background = { poster: obj(b.background).poster === true };
 
   const out = {
     name,
@@ -78,6 +86,8 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     google: { programName: str(google.programName, 120) || undefined, issuerName: str(google.issuerName, 120) || undefined },
     nfc,
     locations,
+    actions,
+    background,
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
   return out;
@@ -148,6 +158,94 @@ function parseLocations(v: unknown): LocationSettings {
   });
   const maxDistance = int(l.maxDistance, 'Max distance', 1, 100000);
   return compact({ points, beacons, maxDistance });
+}
+
+const WEB_URL = /^https?:\/\/\S+$/i;
+const LINK_URL = /^(https?:\/\/|tel:|mailto:|geo:)\S+$/i;
+const ANDROID_PACKAGE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;
+
+function url(v: unknown, name: string, pattern: RegExp, required = true): string | undefined {
+  const s = str(v, 1000).trim();
+  if (!s) {
+    if (required) throw new ValidationError(`${name}: URL is required`);
+    return undefined;
+  }
+  if (!pattern.test(s)) {
+    throw new ValidationError(pattern === WEB_URL ? `${name}: URL must start with http(s)://` : `${name}: URL must start with http(s)://, tel:, mailto: or geo:`);
+  }
+  return s;
+}
+
+function parseActions(v: unknown): ActionSettings {
+  const a = obj(v);
+  const list = (x: unknown, name: string, max: number) => {
+    if (x === undefined) return [];
+    if (!Array.isArray(x)) throw new ValidationError(`${name} must be a list`);
+    if (x.length > max) throw new ValidationError(`Up to ${max} ${name} are allowed`);
+    return x;
+  };
+
+  const links = list(a.links, 'links', MAX_LINKS).map((raw, i) => {
+    const l = obj(raw);
+    const label = str(l.label, 40).trim();
+    if (!label) throw new ValidationError(`Link ${i + 1}: label is required`);
+    return { label, url: url(l.url, `Link ${i + 1}`, LINK_URL)! };
+  });
+
+  const b = obj(a.button);
+  let button: ActionSettings['button'];
+  if (str(b.label).trim() || str(b.url).trim()) {
+    const label = str(b.label, 30).trim();
+    if (!label) throw new ValidationError('Button: label is required (max 30 characters)');
+    const androidPackage = str(b.androidPackage, 200).trim() || undefined;
+    if (androidPackage && !ANDROID_PACKAGE.test(androidPackage)) throw new ValidationError('Button: invalid Android package name');
+    button = compact({ label, url: url(b.url, 'Button', WEB_URL)!, androidPackage });
+  }
+
+  const modules = list(a.modules, 'modules', MAX_MODULES).map((raw, i) => {
+    const m = obj(raw);
+    const n = `Module ${i + 1}`;
+    const header = str(m.header, 60).trim();
+    const body = str(m.body, 50).trim();
+    if (!header && !body) throw new ValidationError(`${n}: header or text is required`);
+    const displayStart = optionalIso(m.displayStart, `${n}: display start`);
+    const displayEnd = optionalIso(m.displayEnd, `${n}: display end`);
+    if (displayStart && displayEnd && displayEnd <= displayStart) throw new ValidationError(`${n}: display end must be after start`);
+    return compact({
+      header,
+      body,
+      url: url(m.url, n, LINK_URL, false),
+      imageId: str(m.imageId, 64).trim() || undefined,
+      displayStart,
+      displayEnd,
+    });
+  });
+
+  const featured = list(a.featured, 'featured actions', MAX_FEATURED_ACTIONS).map((raw, i) => {
+    const f = obj(raw);
+    const action = f.action as FeaturedActionType;
+    if (!FEATURED_ACTIONS.includes(action)) throw new ValidationError(`Featured action ${i + 1}: invalid action`);
+    return compact({ action, url: url(f.url, `Featured action ${i + 1}`, LINK_URL)!, label: str(f.label, 40).trim() || undefined });
+  });
+
+  const ids = a.appStoreIds === undefined ? [] : a.appStoreIds;
+  if (!Array.isArray(ids)) throw new ValidationError('App Store ids must be a list');
+  const appStoreIds = ids.map((x) => {
+    const n = Number(x);
+    if (!Number.isInteger(n) || n <= 0) throw new ValidationError('App Store ids must be positive integers');
+    return n;
+  });
+  const appLaunchURL = str(a.appLaunchURL, 1000).trim() || undefined;
+  if (appLaunchURL && !appStoreIds.length) throw new ValidationError('App launch URL requires an App Store id');
+
+  return compact({ links, button, modules, featured, appLaunchURL, appStoreIds });
+}
+
+function optionalIso(v: unknown, name: string): string | undefined {
+  const s = str(v, 40).trim();
+  if (!s) return undefined;
+  if (Number.isNaN(Date.parse(s))) throw new ValidationError(`Invalid date: ${name}`);
+  return new Date(s).toISOString();
 }
 
 function parseNfc(v: unknown): NfcSettings {

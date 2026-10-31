@@ -130,6 +130,21 @@ Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: 
 
 Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
 
+## Fondo a pantalla completa y botones
+
+Secciones *Full-screen background* y *Buttons & links* del editor. Las URLs admiten `{{placeholders}}`.
+
+| Elemento | Apple Wallet | Google Wallet |
+|---|---|---|
+| Fondo completo | Estilo `posterGeneric` (iOS/watchOS 27+) con la imagen *Background*; los iPhone anteriores usan el estilo clásico del mismo `pass.json` | No existe: la imagen va a lo ancho en el detalle (`imageModulesData` de la class) |
+| Botón en el frente | — | `appLinkData` (texto máx. 30, URL web y opcional app Android) |
+| Links | Campos del reverso con `attributedValue` (`<a href>`) | `linksModuleData` (https, tel:, mailto:, geo:) |
+| Módulos | — | `valueAddedModuleData` (imagen, título 60, texto 50, link; hasta 15) |
+| Acciones destacadas | Hasta 2 (iOS 27+, solo estilo poster) | — |
+| App asociada | `associatedStoreIdentifiers` + `appLaunchURL` | — |
+
+**Inferido, sin referencia pública de Apple:** la guía *Creating a poster generic pass* documenta `posterGeneric` y su layout (1 header, 4 primary, 2 footer, back), pero la referencia de `pass.json` todavía no publica la clave de las acciones destacadas ni el nombre del archivo del fondo. Se envían como `featuredActions` y como `background.png` + `artwork.png`; si iOS no los reconoce, el pase se muestra en el estilo clásico. Ajustar en `src/worker/lib/apple/pkpass.ts` (`posterStyle`, `buildPkpass`) cuando Apple publique la referencia. `addOnURL` y las demás URLs de eventos solo aplican a entradas (event tickets), que no están soportadas.
+
 ## Ubicaciones
 
 Cada plantilla puede tener hasta 10 ubicaciones (sección *Locations* del editor; «Use my current location» toma la del navegador):

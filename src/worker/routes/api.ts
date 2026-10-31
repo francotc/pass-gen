@@ -57,7 +57,8 @@ api.get('/health', (c) => c.json({ ok: true }));
 
 api.get('/settings', async (c) => {
   const s = store(c);
-  const [apple, google] = await Promise.all([s.getAppleSettings(), s.getGoogleSettings()]);
+  // Si ENCRYPTION_KEY cambió, las credenciales guardadas no se descifran: se muestran como no configuradas.
+  const [apple, google] = await Promise.all([s.getAppleSettings().catch(() => null), s.getGoogleSettings().catch(() => null)]);
   let appleStatus: SettingsStatus['apple'] = null;
   if (apple) {
     const info = certInfo(apple.certPem);
@@ -84,7 +85,7 @@ api.get('/settings', async (c) => {
 api.put('/settings/apple', async (c) => {
   const s = store(c);
   const form = await c.req.parseBody();
-  const prev = await s.getAppleSettings();
+  const prev = await s.getAppleSettings().catch(() => null);
   const next: Partial<AppleSettings> = { ...prev };
 
   try {
@@ -128,7 +129,7 @@ api.put('/settings/google', async (c) => {
     }
   }
   const { client_email, private_key } = (sa ?? {}) as { client_email?: string; private_key?: string };
-  const prev = await store(c).getGoogleSettings();
+  const prev = await store(c).getGoogleSettings().catch(() => null);
   const next: GoogleSettings = {
     issuerId: issuerId || prev?.issuerId || '',
     clientEmail: client_email || prev?.clientEmail || '',

@@ -55,6 +55,34 @@ function messageField(m: PassMessage) {
   };
 }
 
+/** Links de la plantilla como campos del reverso; attributedValue los vuelve tocables. */
+function linkFields(t: Template, vars: Record<string, string>) {
+  return (t.actions?.links ?? []).map((l, i) => {
+    const href = render(l.url, vars);
+    const label = render(l.label, vars);
+    return { key: `pg.link.${i}`, label, value: href, attributedValue: `<a href="${escapeHtml(href)}">${escapeHtml(label)}</a>` };
+  });
+}
+
+/**
+ * Estilo poster (iOS/watchOS 27+): fondo a pantalla completa y hasta 2 acciones destacadas.
+ * `posterGeneric` y su layout (1 header, 4 primary, 2 footer, back) salen de la guía de Apple
+ * «Creating a poster generic pass». La clave de las acciones destacadas no está publicada en la
+ * referencia de pass.json: `featuredActions` es una inferencia; si iOS no la reconoce la ignora.
+ * Los iPhone anteriores usan el estilo clásico (storeCard/generic) que va en el mismo pass.json.
+ */
+function posterStyle(style: Record<string, unknown[] | undefined>) {
+  const out: Record<string, unknown[]> = {};
+  const header = style.headerFields?.slice(0, 1);
+  const primary = [...(style.primaryFields ?? []), ...(style.secondaryFields ?? [])].slice(0, 4);
+  const footer = style.auxiliaryFields?.slice(0, 2);
+  if (header?.length) out.headerFields = header;
+  if (primary.length) out.primaryFields = primary;
+  if (footer?.length) out.footerFields = footer;
+  if (style.backFields?.length) out.backFields = style.backFields;
+  return out;
+}
+
 /** Recorta a un máximo de bytes UTF-8 sin cortar caracteres. */
 export function truncateUtf8(s: string, max: number): string {
   const enc = new TextEncoder();
@@ -77,6 +105,8 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
     const sec = p.message.placement;
     style[sec] = [...((style[sec] as unknown[] | undefined) ?? []), messageField(p.message)];
   }
+  const links = linkFields(t, vars);
+  if (links.length) style.backFields = [...((style.backFields as unknown[] | undefined) ?? []), ...links];
   const json: Record<string, unknown> = {
     formatVersion: 1,
     passTypeIdentifier: s.passTypeId,
@@ -101,6 +131,18 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
   };
+  if (t.background?.poster) {
+    json.posterGeneric = posterStyle(style as Record<string, unknown[] | undefined>);
+    const featured = t.actions?.featured ?? [];
+    if (featured.length) {
+      json.featuredActions = featured.map((f) => ({ action: f.action, url: render(f.url, vars), ...(f.label ? { label: f.label } : {}) }));
+    }
+  }
+  const actions = t.actions;
+  if (actions?.appStoreIds.length) {
+    json.associatedStoreIdentifiers = actions.appStoreIds;
+    if (actions.appLaunchURL) json.appLaunchURL = render(actions.appLaunchURL, vars);
+  }
   const loc = t.locations;
   if (loc?.points.length) {
     json.locations = loc.points.map((l) => ({
@@ -171,6 +213,14 @@ export async function buildPkpass(
   if (images.logo) {
     files['logo.png'] = images.logo;
     files['logo@2x.png'] = images.logo;
+  }
+  // Fondo del estilo poster. Apple lo llama «Background artwork»; el nombre de archivo no está
+  // documentado, así que va como background.png (nombre clásico) y artwork.png.
+  if (images.background && t.background?.poster) {
+    for (const name of ['background', 'artwork']) {
+      files[`${name}.png`] = images.background;
+      files[`${name}@2x.png`] = images.background;
+    }
   }
   if (images.strip && t.kind === 'loyalty') {
     files['strip.png'] = images.strip;

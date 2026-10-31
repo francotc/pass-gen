@@ -4,7 +4,9 @@ import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
+  lucideImage,
   lucideLocateFixed,
+  lucideMousePointerClick,
   lucideMapPin,
   lucideNfc,
   lucidePlus,
@@ -23,7 +25,19 @@ import { HlmSeparatorImports } from '@spartan-ng/helm/separator';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
-import { FIELD_SECTIONS, MAX_LOCATIONS, NFC_MAX_BYTES, type FieldSection, type ImageSlot, type TemplateInput } from '../../../../worker/types';
+import {
+  FIELD_SECTIONS,
+  MAX_FEATURED_ACTIONS,
+  MAX_LINKS,
+  MAX_LOCATIONS,
+  MAX_MODULES,
+  NFC_MAX_BYTES,
+  type FeaturedActionType,
+  type FieldSection,
+  type ImageSlot,
+  type PassButton,
+  type TemplateInput,
+} from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
@@ -51,7 +65,7 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucideArrowLeft, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -294,6 +308,158 @@ interface ImageSlotInfo {
 
           <section hlmCard>
             <div hlmCardHeader>
+              <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideImage" /> Full-screen background</h2>
+              <p hlmCardDescription>
+                Apple: poster style (iOS 27+) with the background image edge to edge; older iPhones show the classic layout. Google has no
+                full-screen background: the image is shown full width in the pass details.
+              </p>
+              <div hlmCardAction>
+                <hlm-switch id="poster" name="poster" aria-label="Use the poster style" [(ngModel)]="draft.background.poster" />
+              </div>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-2 text-sm">
+              <p class="text-muted-foreground text-xs">
+                Upload the image in Appearance → Background. In poster style Apple shows 1 header field, up to 4 primary fields (primary +
+                secondary) and 2 footer fields (auxiliary). The poster keys are not in Apple's public pass.json reference yet, so test on
+                an iPhone with iOS 27.
+              </p>
+            </div>
+          </section>
+
+          <section hlmCard>
+            <div hlmCardHeader>
+              <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideMousePointerClick" /> Buttons &amp; links</h2>
+              <p hlmCardDescription>All URLs support placeholders such as <code>{{ '{{serial}}' }}</code>.</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-6">
+              <div class="flex flex-col gap-3">
+                <div>
+                  <span class="text-sm font-medium">Front button (Google)</span>
+                  <p class="text-muted-foreground text-xs">AppLinkData: a call-to-action button on the front of the pass.</p>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-3">
+                  <input hlmInput maxlength="30" aria-label="Button label" placeholder="Label (max 30)" name="btnLabel" [(ngModel)]="button.label" />
+                  <input hlmInput type="url" aria-label="Button URL" placeholder="https://" name="btnUrl" [(ngModel)]="button.url" />
+                  <input hlmInput aria-label="Android package (optional)" placeholder="Android package (optional)" name="btnPkg" [(ngModel)]="button.androidPackage" />
+                </div>
+              </div>
+
+              <hlm-separator />
+
+              <div class="flex flex-col gap-3">
+                <div>
+                  <span class="text-sm font-medium">Links (both)</span>
+                  <p class="text-muted-foreground text-xs">
+                    Google: links section in the details (LinksModuleData). Apple: tappable links on the back (attributedValue). Supports
+                    https, tel:, mailto: and geo:.
+                  </p>
+                </div>
+                @for (l of draft.actions.links; track $index; let i = $index) {
+                  <div class="grid gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                    <input hlmInput maxlength="40" aria-label="Link label" placeholder="Label" [name]="'link-label-' + i" [(ngModel)]="l.label" />
+                    <input hlmInput aria-label="Link URL" placeholder="https:// · tel: · mailto: · geo:" [name]="'link-url-' + i" [(ngModel)]="l.url" />
+                    <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove link" (click)="draft.actions.links.splice(i, 1)">
+                      <ng-icon name="lucideTrash2" />
+                    </button>
+                  </div>
+                }
+                <div>
+                  <button hlmBtn variant="outline" size="sm" type="button" [disabled]="draft.actions.links.length >= maxLinks" (click)="draft.actions.links.push({ label: '', url: '' })">
+                    <ng-icon name="lucidePlus" /> Add link
+                  </button>
+                </div>
+              </div>
+
+              <hlm-separator />
+
+              <div class="flex flex-col gap-3">
+                <div>
+                  <span class="text-sm font-medium">Value-added modules (Google)</span>
+                  <p class="text-muted-foreground text-xs">Cards with image, title (60), text (50) and link. Up to {{ maxModules }}.</p>
+                </div>
+                @for (m of draft.actions.modules; track $index; let i = $index) {
+                  <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[4rem_1fr_1fr_auto]">
+                    <span class="bg-muted row-span-2 inline-flex size-16 items-center justify-center overflow-hidden rounded">
+                      @if (m.imageId) {
+                        <img [src]="api.imageUrl(m.imageId)" alt="" class="size-full object-cover" />
+                      } @else {
+                        <input #modImg type="file" accept="image/png" class="hidden" (change)="uploadModuleImage(i, $event)" />
+                        <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Upload module image" (click)="modImg.click()">
+                          <ng-icon name="lucideUpload" />
+                        </button>
+                      }
+                    </span>
+                    <input hlmInput maxlength="60" aria-label="Module title" placeholder="Title" [name]="'mod-h-' + i" [(ngModel)]="m.header" />
+                    <input hlmInput maxlength="50" aria-label="Module text" placeholder="Text" [name]="'mod-b-' + i" [(ngModel)]="m.body" />
+                    <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove module" (click)="draft.actions.modules.splice(i, 1)">
+                      <ng-icon name="lucideTrash2" />
+                    </button>
+                    <input hlmInput class="sm:col-span-2" aria-label="Module link" placeholder="Link (optional)" [name]="'mod-u-' + i" [(ngModel)]="m.url" />
+                    @if (m.imageId) {
+                      <button hlmBtn variant="ghost" size="sm" type="button" (click)="m.imageId = undefined">Remove image</button>
+                    }
+                  </div>
+                }
+                <div>
+                  <button hlmBtn variant="outline" size="sm" type="button" [disabled]="draft.actions.modules.length >= maxModules" (click)="draft.actions.modules.push({ header: '', body: '' })">
+                    <ng-icon name="lucidePlus" /> Add module
+                  </button>
+                </div>
+              </div>
+
+              <hlm-separator />
+
+              <div class="flex flex-col gap-3">
+                <div>
+                  <span class="text-sm font-medium">Featured actions (Apple, poster style)</span>
+                  <p class="text-muted-foreground text-xs">Up to {{ maxFeatured }} action cards in Wallet (iOS 27+). Only shown with the poster style.</p>
+                </div>
+                @for (f of draft.actions.featured; track $index; let i = $index) {
+                  <div class="grid gap-2 sm:grid-cols-[12rem_1fr_1fr_auto]">
+                    <select hlmInput aria-label="Action" [name]="'fa-a-' + i" [(ngModel)]="f.action">
+                      @for (a of featuredOptions; track a.value) {
+                        <option [value]="a.value">{{ a.label }}</option>
+                      }
+                    </select>
+                    <input hlmInput aria-label="Action URL" placeholder="https:// · tel: · geo:" [name]="'fa-u-' + i" [(ngModel)]="f.url" />
+                    <input hlmInput maxlength="40" aria-label="Action label (optional)" placeholder="Label (optional)" [name]="'fa-l-' + i" [(ngModel)]="f.label" />
+                    <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove action" (click)="draft.actions.featured.splice(i, 1)">
+                      <ng-icon name="lucideTrash2" />
+                    </button>
+                  </div>
+                }
+                <div>
+                  <button
+                    hlmBtn
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    [disabled]="draft.actions.featured.length >= maxFeatured"
+                    (click)="draft.actions.featured.push({ action: 'membershipBenefits', url: '' })"
+                  >
+                    <ng-icon name="lucidePlus" /> Add featured action
+                  </button>
+                </div>
+              </div>
+
+              <hlm-separator />
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div class="flex flex-col gap-2">
+                  <label hlmLabel for="appStoreIds">App Store ids (Apple, optional)</label>
+                  <input hlmInput id="appStoreIds" name="appStoreIds" inputmode="numeric" placeholder="123456789, 987654321" [(ngModel)]="appStoreIds" />
+                  <p class="text-muted-foreground text-xs">Your app shows on the pass and opens from it.</p>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label hlmLabel for="appLaunchURL">App launch URL (Apple, optional)</label>
+                  <input hlmInput id="appLaunchURL" name="appLaunchURL" placeholder="myapp://card/{{ '{{serial}}' }}" [(ngModel)]="draft.actions.appLaunchURL" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section hlmCard>
+            <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideMapPin" /> Locations</h2>
               <p hlmCardDescription>
                 Up to {{ maxLocations }} places where the pass becomes relevant. Apple shows it on the lock screen nearby; Google sends a
@@ -461,6 +627,29 @@ export class TemplateEditor implements OnInit {
   protected readonly sectionLabels = SECTION_LABELS;
   protected readonly nfcMaxBytes = NFC_MAX_BYTES;
   protected readonly maxLocations = MAX_LOCATIONS;
+  protected readonly maxLinks = MAX_LINKS;
+  protected readonly maxModules = MAX_MODULES;
+  protected readonly maxFeatured = MAX_FEATURED_ACTIONS;
+  /** Botón de Google editable; se guarda solo si tiene datos. */
+  protected button: PassButton = { label: '', url: '' };
+  /** App Store ids como texto separado por comas. */
+  protected appStoreIds = '';
+  protected readonly featuredOptions: { value: FeaturedActionType; label: string }[] = [
+    { value: 'membershipBenefits', label: 'View membership benefits' },
+    { value: 'viewOffersRewards', label: 'View offers and rewards' },
+    { value: 'addToBalance', label: 'Add to balance' },
+    { value: 'shop', label: 'Shop online or in-app' },
+    { value: 'order', label: 'Order delivery or pickup' },
+    { value: 'bookAppointment', label: 'Book an appointment' },
+    { value: 'call', label: 'Call' },
+    { value: 'place', label: 'Go to location' },
+    { value: 'bookCar', label: 'Book a car' },
+    { value: 'bookFlight', label: 'Book a flight' },
+    { value: 'bookStay', label: 'Book a stay' },
+    { value: 'viewSchedule', label: 'View schedule' },
+    { value: 'watchTrailer', label: 'Watch trailer' },
+    { value: 'listenToMusic', label: 'Listen to music' },
+  ];
   protected readonly locating = signal(false);
   protected readonly colorFields: { key: keyof TemplateInput['colors']; label: string }[] = [
     { key: 'background', label: 'Background' },
@@ -483,6 +672,7 @@ export class TemplateEditor implements OnInit {
     ];
     if (this.draft.kind === 'loyalty') slots.push({ slot: 'strip', label: 'Strip (Apple)', hint: '1125×432, behind the primary fields' });
     slots.push({ slot: 'hero', label: 'Hero (Google)', hint: '1032×336, at the bottom of the card' });
+    slots.push({ slot: 'background', label: 'Background', hint: 'Full screen on Apple poster style; full width in Google details' });
     return slots;
   }
 
@@ -491,12 +681,16 @@ export class TemplateEditor implements OnInit {
     if (id) {
       try {
         this.draft = toInput(await this.api.template(id));
+        this.button = { label: '', url: '', ...this.draft.actions.button };
+        this.appStoreIds = this.draft.actions.appStoreIds.join(', ');
       } catch (e) {
         toast.error(errorMessage(e));
         await this.router.navigate(['/templates']);
         return;
       }
     }
+    // La vista previa lee el botón desde el draft; se comparte la referencia mientras se edita.
+    this.draft.actions.button = this.button;
     this.loaded.set(true);
   }
 
@@ -561,12 +755,38 @@ export class TemplateEditor implements OnInit {
     delete this.draft.images[slot];
   }
 
+  /** Plantilla a guardar: botón vacío = sin botón; App Store ids desde el texto. */
+  private payload(): TemplateInput {
+    const b = this.button;
+    const button = b.label.trim() || b.url.trim() ? { ...b, androidPackage: b.androidPackage?.trim() || undefined } : undefined;
+    const appStoreIds = this.appStoreIds
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map(Number);
+    return { ...this.draft, actions: { ...this.draft.actions, button, appStoreIds } };
+  }
+
+  protected async uploadModuleImage(i: number, ev: Event) {
+    const inputEl = ev.target as HTMLInputElement;
+    const file = inputEl.files?.[0];
+    inputEl.value = '';
+    if (!file) return;
+    try {
+      const meta = await this.api.uploadImage(file);
+      this.draft.actions.modules[i].imageId = meta.id;
+      this.cdr.markForCheck();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   protected async save(publish: boolean) {
+    const payload = this.payload();
     this.busy.set(true);
     try {
       const id = this.id();
       if (id) {
-        await this.api.updateTemplate(id, this.draft);
+        await this.api.updateTemplate(id, payload);
         if (publish) {
           const res = await this.api.publishTemplate(id);
           const msg = syncMessage(res);
@@ -577,7 +797,7 @@ export class TemplateEditor implements OnInit {
           toast.success('Template saved', { description: 'Existing passes update when you use “Save and update passes”.' });
         }
       } else {
-        const t = await this.api.createTemplate(this.draft);
+        const t = await this.api.createTemplate(payload);
         toast.success('Template created');
         await this.router.navigate(['/templates', t.id]);
       }

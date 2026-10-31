@@ -56,6 +56,9 @@ export async function getAccessToken(sa: GoogleSettings): Promise<string> {
 export interface ImageUrls {
   logo?: string;
   hero?: string;
+  background?: string;
+  /** URL pública de una imagen subida (vacío fuera de HTTPS). */
+  byId?: (id: string) => string | undefined;
 }
 
 export function buildClass(t: Template, issuerId: string, images: ImageUrls): Record<string, unknown> {
@@ -63,7 +66,9 @@ export function buildClass(t: Template, issuerId: string, images: ImageUrls): Re
   // merchantLocations reemplaza al campo `locations` (deprecado, ya no notifica). El radio lo define Google.
   const points = t.locations?.points ?? [];
   const merchantLocations = points.length ? { merchantLocations: points.map((l) => ({ latitude: l.latitude, longitude: l.longitude })) } : {};
-  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations };
+  // Google no tiene fondo a pantalla completa: la imagen va a lo ancho en el detalle del pase.
+  const imageModules = images.background ? { imageModulesData: [{ id: 'background', mainImage: image(images.background, t.name) }] } : {};
+  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations, ...imageModules };
   if (t.kind === 'generic') return base;
   return JSON.parse(
     JSON.stringify({
@@ -103,6 +108,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
       : undefined,
   };
 
+  Object.assign(common, actionModules(t, vars, images));
   const obj =
     t.kind === 'loyalty'
       ? {
@@ -123,6 +129,51 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
           textModulesData: textModules(lead ? others : [...rest, ...others], vars),
         };
   return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Links, botón y módulos van en el object (no en la class) para poder usar placeholders por pase.
+ * AppLinkData del object reemplaza al de la class; links y módulos se suman.
+ */
+function actionModules(t: Template, vars: Record<string, string>, images: ImageUrls): Record<string, unknown> {
+  const a = t.actions;
+  if (!a) return {};
+  const r = (s: string) => render(s, vars);
+  const out: Record<string, unknown> = {};
+  if (a.links.length) {
+    out.linksModuleData = { uris: a.links.map((l, i) => ({ id: `link${i}`, uri: r(l.url), description: r(l.label) })) };
+  }
+  if (a.button) {
+    const uri = r(a.button.url);
+    out.appLinkData = {
+      displayText: localized(a.button.label),
+      webAppLinkInfo: { appTarget: { targetUri: { uri, description: a.button.label } } },
+      ...(a.button.androidPackage ? { androidAppLinkInfo: { appTarget: { packageName: a.button.androidPackage } } } : {}),
+    };
+  }
+  if (a.modules.length) {
+    out.valueAddedModuleData = a.modules.map((m, i) => {
+      const img = m.imageId ? images.byId?.(m.imageId) : undefined;
+      return {
+        ...(m.header ? { header: localized(r(m.header)) } : {}),
+        ...(m.body ? { body: localized(r(m.body)) } : {}),
+        ...(m.url ? { uri: r(m.url) } : {}),
+        ...(img ? { image: image(img, m.header || m.body) } : {}),
+        sortIndex: i,
+        ...(m.displayStart || m.displayEnd
+          ? {
+              viewConstraints: {
+                displayInterval: {
+                  ...(m.displayStart ? { start: { date: m.displayStart } } : {}),
+                  ...(m.displayEnd ? { end: { date: m.displayEnd } } : {}),
+                },
+              },
+            }
+          : {}),
+      };
+    });
+  }
+  return out;
 }
 
 /** Crea o reemplaza un recurso: GET → PUT si existe, POST si no. */

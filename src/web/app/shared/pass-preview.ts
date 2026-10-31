@@ -18,10 +18,13 @@ interface RenderedField {
   template: `
     <div class="grid gap-6 sm:grid-cols-2">
       <figure class="flex flex-col gap-2">
-        <figcaption class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Apple Wallet</figcaption>
+        <figcaption class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          Apple Wallet{{ poster() ? ' · poster (iOS 27+)' : '' }}
+        </figcaption>
         <div
-          class="flex aspect-[1/1.3] w-full max-w-80 flex-col overflow-hidden rounded-2xl shadow-lg"
-          [style.background]="t().colors.background"
+          class="flex aspect-[1/1.3] w-full max-w-80 flex-col overflow-hidden rounded-2xl bg-cover bg-center shadow-lg"
+          [style.background-color]="t().colors.background"
+          [style.background-image]="poster() && background() ? 'url(' + background() + ')' : null"
           [style.color]="t().colors.foreground"
         >
           <div class="flex items-start justify-between gap-3 p-3">
@@ -132,6 +135,19 @@ interface RenderedField {
             <img [src]="hero()" alt="" class="aspect-[1032/336] w-full object-cover" />
           }
         </div>
+        @if (buttonLabel(); as label) {
+          <span class="border-border inline-flex max-w-80 items-center justify-center rounded-full border px-4 py-2 text-sm font-medium">{{ label }}</span>
+        }
+        @if (links().length) {
+          <ul class="flex max-w-80 flex-col gap-1 text-xs">
+            @for (l of links(); track $index) {
+              <li class="text-primary truncate underline underline-offset-2">{{ r(l.label) || r(l.url) }}</li>
+            }
+          </ul>
+        }
+        @if (!poster() && background()) {
+          <img [src]="background()" alt="" class="w-full max-w-80 rounded-xl object-cover" />
+        }
         @if (googleModules().length) {
           <dl class="text-muted-foreground mt-1 grid max-w-80 gap-1 text-xs">
             @for (m of googleModules(); track m.key) {
@@ -223,6 +239,19 @@ export class PassPreview {
   }
   protected strip() {
     return this.img(this.t().images.strip);
+  }
+  // Plantillas viejas no tienen `actions` ni `background`.
+  protected buttonLabel() {
+    return this.t().actions?.button?.label;
+  }
+  protected links() {
+    return this.t().actions?.links ?? [];
+  }
+  protected poster() {
+    return this.t().background?.poster ?? false;
+  }
+  protected background() {
+    return this.img(this.t().images.background);
   }
   protected hero() {
     return this.img(this.t().images.hero ?? this.t().images.strip);

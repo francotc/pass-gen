@@ -15,6 +15,13 @@ export function placeholderKeys(t: TemplateInput): string[] {
   const texts = [t.logoText, t.barcode.message, t.barcode.altText ?? ''];
   if (t.nfc?.enabled) texts.push(t.nfc.message);
   for (const l of [...(t.locations?.points ?? []), ...(t.locations?.beacons ?? [])]) texts.push(l.relevantText ?? '');
+  const a = t.actions;
+  if (a) {
+    for (const l of a.links) texts.push(l.label, l.url);
+    if (a.button) texts.push(a.button.url);
+    for (const m of a.modules) texts.push(m.header, m.body, m.url ?? '');
+    for (const f of a.featured) texts.push(f.url);
+  }
   for (const s of FIELD_SECTIONS) for (const f of t[s]) texts.push(f.label, f.value);
   const keys = new Set<string>();
   for (const text of texts) for (const m of text.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)) if (!RESERVED.has(m[1])) keys.add(m[1]);
@@ -42,6 +49,8 @@ export function newTemplate(): TemplateInput {
     google: { programName: 'Stamp card', issuerName: '' },
     nfc: { enabled: false, message: '{{serial}}' },
     locations: { points: [], beacons: [] },
+    actions: { links: [], modules: [], featured: [], appStoreIds: [] },
+    background: { poster: false },
   };
 }
 
@@ -51,5 +60,7 @@ export function toInput(t: TemplateInput & { id?: string; createdAt?: string; up
   // Plantillas guardadas antes de soportar NFC y ubicaciones.
   out.nfc ??= { enabled: false, message: '{{serial}}' };
   out.locations ??= { points: [], beacons: [] };
+  out.actions ??= { links: [], modules: [], featured: [], appStoreIds: [] };
+  out.background ??= { poster: false };
   return out;
 }

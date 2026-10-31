@@ -46,6 +46,12 @@ describe('settings', () => {
     expect(JSON.stringify(status)).not.toContain('PRIVATE');
   });
 
+  it('credenciales ilegibles (otra ENCRYPTION_KEY) se tratan como no configuradas', async () => {
+    await env.PASSGEN.put('settings:apple', 'AAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAAAA');
+    expect(await (await call('/api/settings')).json()).toMatchObject({ apple: null });
+    expect((await setupApple()).status).toBe(200);
+  });
+
   it('valida Google', async () => {
     expect((await json('/api/settings/google', 'PUT', { issuerId: 'x', serviceAccount: {} })).status).toBe(400);
     const { pem } = await generatePkcs8Pem('RS256');

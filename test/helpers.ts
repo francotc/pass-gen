@@ -59,6 +59,8 @@ export function makeTemplate(over: Partial<Template> = {}): Template {
     google: { programName: 'Sellos' },
     nfc: { enabled: false, message: '' },
     locations: { points: [], beacons: [] },
+    actions: { links: [], modules: [], featured: [], appStoreIds: [] },
+    background: { poster: false },
     createdAt: '2026-10-29T00:00:00.000Z',
     updatedAt: '2026-10-29T00:00:00.000Z',
     ...over,
