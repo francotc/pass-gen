@@ -152,6 +152,37 @@ export interface BackgroundSettings {
   poster: boolean;
 }
 
+export const MAX_RELEVANT_DATES = 10;
+
+export interface RelevantDate {
+  /** ISO 8601. */
+  start: string;
+  /** ISO 8601; sin fin, Apple calcula el intervalo. */
+  end?: string;
+}
+
+/** Vigencia y relevancia por fecha. Las fechas del pase pisan las de la plantilla. */
+export interface ScheduleSettings {
+  /** Google: inicio de validTimeInterval. */
+  validFrom?: string;
+  /** Apple expirationDate y Google fin de validTimeInterval. */
+  expiresAt?: string;
+  /** Apple relevantDates: el pase aparece en la pantalla bloqueada en esos intervalos. */
+  relevantDates: RelevantDate[];
+  /** Google (solo Generic): avisos antes de empezar y de vencer. */
+  notify: boolean;
+}
+
+/**
+ * Código de barras con OTP (formato SERIAL.CÓDIGO).
+ * Google: rotatingBarcode TOTP, rota en el teléfono cada `googlePeriodSeconds`.
+ * Apple: cambia cada 24 h (cron diario + push) y vale 48 h.
+ */
+export interface OtpSettings {
+  enabled: boolean;
+  googlePeriodSeconds: number;
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -172,6 +203,8 @@ export interface Template {
   locations: LocationSettings;
   actions: ActionSettings;
   background: BackgroundSettings;
+  schedule: ScheduleSettings;
+  otp: OtpSettings;
   createdAt: string;
   updatedAt: string;
 }
@@ -190,6 +223,9 @@ export interface Pass {
   google: { objectId?: string; synced: boolean; error?: string };
   /** Último mensaje enviado; en Apple se muestra como un campo del pase. */
   message?: PassMessage;
+  /** Pisan schedule.validFrom / expiresAt de la plantilla (ISO 8601). */
+  validFrom?: string;
+  expiresAt?: string;
 }
 
 /** Mensaje ya renderizado para un pase (placeholders resueltos). */
@@ -207,6 +243,16 @@ export interface PassInput {
   templateId: string;
   holderName: string;
   data: Record<string, string>;
+  validFrom?: string;
+  expiresAt?: string;
+}
+
+export interface OtpVerifyResult {
+  valid: boolean;
+  serial?: string;
+  holderName?: string;
+  platform?: 'apple' | 'google';
+  reason?: string;
 }
 
 export interface AppleSettings {

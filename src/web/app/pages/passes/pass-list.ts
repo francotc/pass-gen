@@ -3,19 +3,21 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus, lucideSearch, lucideTicket } from '@ng-icons/lucide';
+import { lucideCircleCheck, lucideCircleX, lucidePlus, lucideScanLine, lucideSearch, lucideTicket } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmInputImports } from '@spartan-ng/helm/input';
+import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmTableImports } from '@spartan-ng/helm/table';
+import type { OtpVerifyResult } from '../../../../worker/types';
 import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../../core/api.service';
 
 @Component({
   selector: 'app-pass-list',
-  imports: [FormsModule, RouterLink, DatePipe, NgIcon, HlmBadgeImports, HlmButtonImports, HlmInputImports, HlmSkeletonImports, HlmTableImports],
-  providers: [provideIcons({ lucidePlus, lucideSearch, lucideTicket })],
+  imports: [FormsModule, RouterLink, DatePipe, NgIcon, HlmBadgeImports, HlmButtonImports, HlmInputImports, HlmLabelImports, HlmSkeletonImports, HlmTableImports],
+  providers: [provideIcons({ lucidePlus, lucideSearch, lucideTicket, lucideScanLine, lucideCircleCheck, lucideCircleX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -24,6 +26,40 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
       </div>
       <a hlmBtn routerLink="/passes/new"><ng-icon name="lucidePlus" /> Issue pass</a>
     </header>
+
+    <form class="border-border mb-6 flex max-w-4xl flex-col gap-3 rounded-lg border p-4" (ngSubmit)="verify()">
+      <div class="flex flex-col gap-1">
+        <label hlmLabel for="otpValue" class="flex items-center gap-2"><ng-icon name="lucideScanLine" /> Verify code</label>
+        <p class="text-muted-foreground text-xs">Paste or scan an OTP barcode (SERIAL.CODE) to check that it is valid right now.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <input
+          hlmInput
+          id="otpValue"
+          name="otpValue"
+          class="min-w-0 flex-1 font-mono"
+          autocomplete="off"
+          placeholder="ABC123XYZ789.01234567"
+          [ngModel]="otpValue()"
+          (ngModelChange)="otpValue.set($event); otpResult.set(null)"
+        />
+        <button hlmBtn type="submit" [disabled]="!otpValue().trim() || verifying()">{{ verifying() ? 'Checking…' : 'Verify' }}</button>
+      </div>
+      @if (otpResult(); as r) {
+        <div
+          role="status"
+          class="flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+          [class]="r.valid ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-destructive/10 text-destructive'"
+        >
+          <ng-icon [name]="r.valid ? 'lucideCircleCheck' : 'lucideCircleX'" />
+          @if (r.valid) {
+            Valid · {{ r.holderName }} · {{ r.serial }} · {{ r.platform === 'apple' ? 'Apple Wallet' : 'Google Wallet' }}
+          } @else {
+            {{ r.reason }}{{ r.holderName ? ' · ' + r.holderName : '' }}
+          }
+        </div>
+      }
+    </form>
 
     @if (loading()) {
       <div class="flex max-w-4xl flex-col gap-2">
@@ -100,12 +136,26 @@ export class PassList implements OnInit {
   protected readonly templates = signal(new Map<string, string>());
   protected readonly loading = signal(true);
   protected readonly query = signal('');
+  protected readonly otpValue = signal('');
+  protected readonly otpResult = signal<OtpVerifyResult | null>(null);
+  protected readonly verifying = signal(false);
 
   protected readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();
     if (!q) return this.passes();
     return this.passes().filter((p) => p.holderName.toLowerCase().includes(q) || p.serial.toLowerCase().includes(q));
   });
+
+  protected async verify() {
+    this.verifying.set(true);
+    try {
+      this.otpResult.set(await this.api.verifyOtp(this.otpValue()));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      this.verifying.set(false);
+    }
+  }
 
   async ngOnInit() {
     try {

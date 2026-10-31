@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import type {
   ImageMeta,
   NotificationInput,
+  OtpVerifyResult,
   NotificationRecord,
   Pass,
   PassInput,
@@ -114,7 +115,10 @@ export class Api {
   issuePass(input: PassInput) {
     return firstValueFrom(this.http.post<PassWithSync>('/api/passes', input));
   }
-  updatePass(serial: string, body: { holderName?: string; data?: Record<string, string>; voided?: boolean; notify?: boolean }) {
+  updatePass(
+    serial: string,
+    body: { holderName?: string; data?: Record<string, string>; voided?: boolean; notify?: boolean; validFrom?: string; expiresAt?: string },
+  ) {
     return firstValueFrom(this.http.put<PassWithSync>(`/api/passes/${encodeURIComponent(serial)}`, body));
   }
   syncPass(serial: string) {
@@ -135,6 +139,13 @@ export class Api {
   }
   sendNotification(input: NotificationInput) {
     return firstValueFrom(this.http.post<NotificationRecord>('/api/notifications', input));
+  }
+
+  holderPageUrl(pass: Pass) {
+    return `${location.origin}/public/p/${encodeURIComponent(pass.serial)}/${pass.authToken}`;
+  }
+  verifyOtp(value: string) {
+    return firstValueFrom(this.http.post<OtpVerifyResult>('/api/otp/verify', { value }));
   }
 
   publicPkpassUrl(pass: Pass) {

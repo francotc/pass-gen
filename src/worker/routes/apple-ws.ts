@@ -1,3 +1,4 @@
+import { passOtp } from '../lib/otp';
 import { Hono, type Context } from 'hono';
 import type { AppEnv } from '../env';
 import { buildPkpass } from '../lib/apple/pkpass';
@@ -59,7 +60,7 @@ appleWs.get('/passes/:passTypeId/:serial', async (c) => {
   const s = store(c);
   const [tpl, apple] = await Promise.all([s.getTemplate(pass.templateId), s.getAppleSettings()]);
   if (!tpl || !apple) return c.body(null, 500);
-  const bytes = await buildPkpass(tpl, pass, apple, new URL(c.req.url).origin, await loadImages(s, tpl));
+  const bytes = await buildPkpass(tpl, pass, apple, new URL(c.req.url).origin, await loadImages(s, tpl), await passOtp(c.env.ENCRYPTION_KEY, tpl, pass.serial));
   return c.body(bytes, 200, { 'content-type': 'application/vnd.apple.pkpass', 'last-modified': lastModified.toUTCString() });
 });
 

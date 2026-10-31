@@ -1,5 +1,6 @@
 import type { BarcodeFormat, Field, GoogleSettings, Pass, PassKind, Template } from '../../types';
 import { signJwt } from '../crypto';
+import { otpBarcodeValue, type PassOtp } from '../otp';
 import { passVars, render } from '../render';
 
 const API = 'https://walletobjects.googleapis.com/walletobjects/v1';
@@ -88,7 +89,7 @@ function textModules(fields: Field[], vars: Record<string, string>) {
     .filter((m) => m.body);
 }
 
-export function buildObject(t: Template, p: Pass, issuerId: string, images: ImageUrls): Record<string, unknown> {
+export function buildObject(t: Template, p: Pass, issuerId: string, images: ImageUrls, otp?: PassOtp): Record<string, unknown> {
   const vars = passVars(p);
   const [lead, ...rest] = [...t.headerFields, ...t.primaryFields];
   const others = [...rest, ...t.secondaryFields, ...t.auxiliaryFields, ...t.backFields];
@@ -109,6 +110,23 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
   };
 
   Object.assign(common, actionModules(t, vars, images));
+  Object.assign(common, scheduleFields(t, p));
+  if (otp) {
+    // El teléfono genera el TOTP; sin barcode estático para que una captura no sirva.
+    delete (common as Record<string, unknown>).barcode;
+    Object.assign(common, {
+      rotatingBarcode: {
+        type: BARCODE[t.barcode.format],
+        valuePattern: otpBarcodeValue(p.serial, '{totp_value_0}'),
+        alternateText: p.serial,
+        totpDetails: {
+          periodMillis: String((t.otp?.googlePeriodSeconds ?? 30) * 1000),
+          algorithm: 'TOTP_SHA1',
+          parameters: [{ key: otp.keyHex, valueLength: 8 }],
+        },
+      },
+    });
+  }
   const obj =
     t.kind === 'loyalty'
       ? {
@@ -172,6 +190,21 @@ function actionModules(t: Template, vars: Record<string, string>, images: ImageU
           : {}),
       };
     });
+  }
+  return out;
+}
+
+/** Vigencia (validTimeInterval) y, en Generic, avisos de inicio y vencimiento. */
+function scheduleFields(t: Template, p: Pass): Record<string, unknown> {
+  const start = p.validFrom ?? t.schedule?.validFrom;
+  const end = p.expiresAt ?? t.schedule?.expiresAt;
+  const out: Record<string, unknown> = {};
+  if (start || end) out.validTimeInterval = { ...(start ? { start: { date: start } } : {}), ...(end ? { end: { date: end } } : {}) };
+  if (t.kind === 'generic' && t.schedule?.notify && (start || end)) {
+    out.notifications = {
+      ...(start ? { upcomingNotification: { enableNotification: true } } : {}),
+      ...(end ? { expiryNotification: { enableNotification: true } } : {}),
+    };
   }
   return out;
 }

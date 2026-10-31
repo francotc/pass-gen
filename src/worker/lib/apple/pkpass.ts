@@ -2,6 +2,7 @@ import { zipSync } from 'fflate';
 import forge from 'node-forge';
 import { NFC_MAX_BYTES, type AppleSettings, type BarcodeFormat, type Field, type FieldSection, type ImageSlot, type Pass, type PassMessage, type Template } from '../../types';
 import { b64ToBytes, sha1Hex } from '../crypto';
+import { otpBarcodeValue, type PassOtp } from '../otp';
 import { passVars, render } from '../render';
 
 const BARCODE: Record<BarcodeFormat, string> = {
@@ -95,7 +96,7 @@ export function truncateUtf8(s: string, max: number): string {
   return out;
 }
 
-export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: string): Record<string, unknown> {
+export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: string, otp?: PassOtp): Record<string, unknown> {
   const vars = passVars(p);
   const style: Record<string, unknown> = {};
   for (const sec of SECTIONS) {
@@ -118,15 +119,21 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
     foregroundColor: hexToRgb(t.colors.foreground),
     backgroundColor: hexToRgb(t.colors.background),
     labelColor: hexToRgb(t.colors.label),
-    barcodes: t.barcode.message
-      ? [
-          {
-            format: BARCODE[t.barcode.format],
-            message: render(t.barcode.message, vars),
-            messageEncoding: 'iso-8859-1',
-            ...(t.barcode.altText ? { altText: render(t.barcode.altText, vars) } : {}),
-          },
-        ]
+    barcodes: otp
+      ? [{ format: BARCODE[t.barcode.format], message: otpBarcodeValue(p.serial, otp.appleCode), messageEncoding: 'iso-8859-1', altText: p.serial }]
+      : t.barcode.message
+        ? [
+            {
+              format: BARCODE[t.barcode.format],
+              message: render(t.barcode.message, vars),
+              messageEncoding: 'iso-8859-1',
+              ...(t.barcode.altText ? { altText: render(t.barcode.altText, vars) } : {}),
+            },
+          ]
+        : undefined,
+    expirationDate: p.expiresAt ?? t.schedule?.expiresAt,
+    relevantDates: t.schedule?.relevantDates.length
+      ? t.schedule.relevantDates.map((r) => (r.end ? { startDate: r.start, endDate: r.end } : { date: r.start }))
       : undefined,
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
@@ -203,9 +210,10 @@ export async function buildPkpass(
   s: AppleSettings,
   origin: string,
   images: Partial<Record<ImageSlot, Uint8Array>>,
+  otp?: PassOtp,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const files: Record<string, Uint8Array> = {
-    'pass.json': new TextEncoder().encode(JSON.stringify(buildPassJson(t, p, s, origin))),
+    'pass.json': new TextEncoder().encode(JSON.stringify(buildPassJson(t, p, s, origin, otp))),
   };
   const icon = images.icon ?? images.logo ?? PLACEHOLDER_ICON;
   files['icon.png'] = icon;

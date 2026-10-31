@@ -162,3 +162,70 @@ describe('front', () => {
     expect(res.status).toBeLessThan(500);
   });
 });
+
+describe('página del titular', () => {
+  it('muestra el botón según el dispositivo, QR en computadora y protege con el token', async () => {
+    await setupApple();
+    const { pass } = await issue();
+    const url = `/public/p/${pass.serial}/${pass.authToken}`;
+    const ua = (v: string) => ({ headers: { 'user-agent': v } });
+
+    const ios = await call(url, ua('Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X)'));
+    expect(ios.status).toBe(200);
+    expect(ios.headers.get('referrer-policy')).toBe('no-referrer');
+    const iosHtml = await ios.text();
+    expect(iosHtml).toContain(`/public/passes/${pass.serial}/${pass.authToken}.pkpass`);
+    expect(iosHtml).toContain('Add to Apple Wallet');
+    expect(iosHtml).not.toContain('<svg');
+
+    const desktop = await (await call(url, ua('Mozilla/5.0 (X11; Linux x86_64)'))).text();
+    expect(desktop).toContain('<svg role="img"');
+    expect(desktop).toContain('Ana');
+
+    // Google no está configurado: en Android no hay botones.
+    const android = await (await call(url, ua('Mozilla/5.0 (Linux; Android 15)'))).text();
+    expect(android).toContain('not available for your device');
+
+    expect((await call(`/public/p/${pass.serial}/otro`)).status).toBe(404);
+  });
+
+  it('avisa cuando el pase está anulado', async () => {
+    await setupApple();
+    const { pass } = await issue();
+    await json(`/api/passes/${pass.serial}`, 'PUT', { voided: true });
+    expect(await (await call(`/public/p/${pass.serial}/${pass.authToken}`)).text()).toContain('no longer valid');
+  });
+});
+
+describe('OTP y fechas', () => {
+  it('verifica códigos Apple/Google y rechaza anulados, vencidos y desconocidos', async () => {
+    await setupApple();
+    const tpl = (await (await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 30 } })).json()) as Template;
+    const pass = ((await (await json('/api/passes', 'POST', { templateId: tpl.id, holderName: 'Ana', data: {} })).json()) as { pass: Pass }).pass;
+    const verify = async (value: string) => (await (await json('/api/otp/verify', 'POST', { value })).json()) as Record<string, unknown>;
+
+    const zip = unzipSync(new Uint8Array(await (await call(`/api/passes/${pass.serial}/pkpass`)).arrayBuffer()));
+    const barcode = JSON.parse(new TextDecoder().decode(zip['pass.json'])).barcodes[0];
+    expect(barcode.message).toMatch(new RegExp(`^${pass.serial}\\.\\d{8}$`));
+    expect(barcode.altText).toBe(pass.serial);
+
+    expect(await verify(barcode.message)).toEqual({ valid: true, serial: pass.serial, holderName: 'Ana', platform: 'apple' });
+    expect(await verify(`${pass.serial}.00000000`)).toMatchObject({ valid: false, reason: 'Invalid or expired code' });
+    expect(await verify('basura')).toMatchObject({ valid: false, reason: 'Not an OTP barcode (expected SERIAL.CODE)' });
+    expect(await verify('NOPE.12345678')).toMatchObject({ valid: false, reason: 'Unknown pass' });
+
+    await json(`/api/passes/${pass.serial}`, 'PUT', { expiresAt: '2020-01-01T00:00:00Z' });
+    expect(await verify(barcode.message)).toMatchObject({ valid: false, reason: 'Pass expired' });
+    await json(`/api/passes/${pass.serial}`, 'PUT', { expiresAt: '' });
+    expect(await verify(barcode.message)).toMatchObject({ valid: true });
+  });
+
+  it('valida fechas de plantilla y de pase', async () => {
+    const bad = await json('/api/templates', 'POST', { ...templateInput, schedule: { validFrom: '2026-12-01', expiresAt: '2026-11-01' } });
+    expect(await bad.json()).toMatchObject({ error: 'Expiration must be after the start date' });
+    const bad2 = await json('/api/templates', 'POST', { ...templateInput, schedule: { relevantDates: [{}] } });
+    expect(await bad2.json()).toMatchObject({ error: 'Relevant date 1: start is required' });
+    const bad3 = await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 5 } });
+    expect(await bad3.json()).toMatchObject({ error: 'OTP period must be between 10 and 300 seconds' });
+  });
+});

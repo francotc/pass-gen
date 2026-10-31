@@ -61,6 +61,8 @@ export function makeTemplate(over: Partial<Template> = {}): Template {
     locations: { points: [], beacons: [] },
     actions: { links: [], modules: [], featured: [], appStoreIds: [] },
     background: { poster: false },
+    schedule: { relevantDates: [], notify: false },
+    otp: { enabled: false, googlePeriodSeconds: 30 },
     createdAt: '2026-10-29T00:00:00.000Z',
     updatedAt: '2026-10-29T00:00:00.000Z',
     ...over,

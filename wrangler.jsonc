@@ -8,6 +8,8 @@
   "workers_dev": false,
   // Compila el front antes de deploy/dev (también en Workers Builds, que corre `wrangler deploy` directo)
   "build": { "command": "npm run build:web" },
+  // Rota los códigos OTP de Apple (cambian a medianoche UTC)
+  "triggers": { "crons": ["1 0 * * *"] },
   "assets": {
     "directory": "dist/web/browser",
     "binding": "ASSETS",

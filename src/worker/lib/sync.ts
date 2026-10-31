@@ -1,6 +1,7 @@
 import type { Env } from '../env';
 import type { AppleSettings, GoogleSettings, Pass, SyncResult, Template } from '../types';
 import { pushUpdate } from './apple/apns';
+import { passOtp } from './otp';
 import {
   buildClass,
   buildObject,
@@ -31,8 +32,9 @@ export function imageUrls(t: Template, origin: string): ImageUrls {
   };
 }
 
-async function googleUpsertObject(token: string, gs: GoogleSettings, t: Template, p: Pass, origin: string, notify = false) {
-  const obj = buildObject(t, p, gs.issuerId, imageUrls(t, origin));
+async function googleUpsertObject(ctx: Ctx, token: string, gs: GoogleSettings, t: Template, p: Pass, notify = false) {
+  const otp = await passOtp(ctx.env.ENCRYPTION_KEY, t, p.serial);
+  const obj = buildObject(t, p, gs.issuerId, imageUrls(t, ctx.origin), otp);
   // Notificación de cambio de campo (saldo, nivel); el flag es efímero y solo existe en loyalty.
   if (notify && t.kind === 'loyalty') obj.notifyPreference = 'NOTIFY_ON_UPDATE';
   await upsert(token, objectResource(t.kind), obj);
@@ -73,7 +75,7 @@ export async function syncPass(ctx: Ctx, serial: string, notifyGoogle = false): 
     try {
       const token = await getAccessToken(gs);
       await googleUpsertClass(token, gs, tpl, ctx.origin);
-      pass.google = { objectId: await googleUpsertObject(token, gs, tpl, pass, ctx.origin, notifyGoogle), synced: true };
+      pass.google = { objectId: await googleUpsertObject(ctx, token, gs, tpl, pass, notifyGoogle), synced: true };
       result.google = { ok: true };
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
@@ -124,7 +126,7 @@ export async function publishTemplate(ctx: Ctx, templateId: string): Promise<Syn
     pass.updatedAt = now;
     if (gs && token) {
       try {
-        pass.google = { objectId: await googleUpsertObject(token, gs, tpl, pass, ctx.origin), synced: true };
+        pass.google = { objectId: await googleUpsertObject(ctx, token, gs, tpl, pass), synced: true };
       } catch (e) {
         const error = e instanceof Error ? e.message : String(e);
         pass.google = { ...pass.google, synced: false, error };

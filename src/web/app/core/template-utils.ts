@@ -51,6 +51,8 @@ export function newTemplate(): TemplateInput {
     locations: { points: [], beacons: [] },
     actions: { links: [], modules: [], featured: [], appStoreIds: [] },
     background: { poster: false },
+    schedule: { relevantDates: [], notify: false },
+    otp: { enabled: false, googlePeriodSeconds: 30 },
   };
 }
 
@@ -62,5 +64,7 @@ export function toInput(t: TemplateInput & { id?: string; createdAt?: string; up
   out.locations ??= { points: [], beacons: [] };
   out.actions ??= { links: [], modules: [], featured: [], appStoreIds: [] };
   out.background ??= { poster: false };
+  out.schedule ??= { relevantDates: [], notify: false };
+  out.otp ??= { enabled: false, googlePeriodSeconds: 30 };
   return out;
 }
