@@ -89,8 +89,8 @@ interface RenderedField {
         >
           <div class="flex items-center gap-2 p-4">
             <span class="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/90">
-              @if (logo()) {
-                <img [src]="logo()" alt="" class="size-full object-cover" />
+              @if (googleLogo()) {
+                <img [src]="googleLogo()" alt="" class="size-full object-cover" />
               }
             </span>
             <span class="truncate text-sm">{{ t().google.issuerName || t().organizationName }}</span>
@@ -236,6 +236,9 @@ export class PassPreview {
   }
   protected logo() {
     return this.img(this.t().images.logo ?? this.t().images.icon);
+  }
+  protected googleLogo() {
+    return this.img(this.t().images.logoSquare ?? this.t().images.logo ?? this.t().images.icon);
   }
   protected strip() {
     return this.img(this.t().images.strip);

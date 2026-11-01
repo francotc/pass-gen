@@ -130,6 +130,21 @@ Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: 
 
 Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
 
+## Imágenes
+
+En *Appearance* se suben dos imágenes y el editor genera todas las demás en el navegador, recortando con proporción fija (arrastrar para mover, rueda o slider para el zoom):
+
+| Fuente | Genera | Tamaño |
+|---|---|---|
+| Logo | Logo cuadrado de Google (`logoSquare`, se muestra en círculo) | 660 × 660 |
+| | Ícono de Apple (`icon`, notificaciones y pantalla bloqueada) | 87 × 87 |
+| | Logo de Apple (`logo`, imagen entera sin recortar) | hasta 480 × 150 |
+| Portada | Strip de Apple (solo Loyalty) | 1125 × 432 |
+| | Hero de Google | 1032 × 336 |
+| | Fondo del estilo poster de Apple (si está activo) | 750 × 1000 |
+
+Todas salen en PNG (el logo conserva la transparencia). Cada imagen generada se puede reemplazar por separado en *Generated images*. Límite por imagen: 5 MB.
+
 ## Código OTP
 
 Sección *One-time code (OTP)*: el código de barras pasa a `SERIAL.CÓDIGO` (8 dígitos, TOTP SHA‑1). El secreto de cada pase se deriva de `ENCRYPTION_KEY` (no se guarda; cambiar la clave invalida todos los códigos).

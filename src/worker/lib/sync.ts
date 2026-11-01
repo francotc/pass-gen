@@ -25,7 +25,8 @@ export function imageUrls(t: Template, origin: string): ImageUrls {
   if (!origin.startsWith('https://')) return {};
   const url = (id?: string) => (id ? `${origin}/public/images/${id}` : undefined);
   return {
-    logo: url(t.images.logo ?? t.images.icon),
+    // Google muestra el logo en un círculo: preferir el recorte cuadrado.
+    logo: url(t.images.logoSquare ?? t.images.logo ?? t.images.icon),
     hero: url(t.images.hero ?? t.images.strip),
     background: url(t.images.background),
     byId: url,

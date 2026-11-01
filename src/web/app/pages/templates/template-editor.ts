@@ -42,6 +42,7 @@ import {
 import { Api, errorMessage } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
+import { ImageStudio } from '../../shared/image-studio';
 import { PassPreview } from '../../shared/pass-preview';
 
 interface ImageSlotInfo {
@@ -57,6 +58,7 @@ interface ImageSlotInfo {
     RouterLink,
     NgIcon,
     PassPreview,
+    ImageStudio,
     HlmButtonImports,
     HlmCardImports,
     HlmInputImports,
@@ -153,6 +155,12 @@ interface ImageSlotInfo {
                 }
               </div>
               <hlm-separator />
+              <app-image-studio [kind]="draft.kind" [poster]="draft.background.poster" (generated)="applyGenerated($event)" />
+              <details class="group">
+                <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-sm">
+                  Generated images ({{ imageCount() }}) · replace one individually
+                </summary>
+                <div class="mt-3">
               <div class="grid gap-4 sm:grid-cols-2">
                 @for (img of imageSlots(); track img.slot) {
                   <div class="flex flex-col gap-2">
@@ -181,6 +189,8 @@ interface ImageSlotInfo {
                   </div>
                 }
               </div>
+                </div>
+              </details>
             </div>
           </section>
 
@@ -686,10 +696,20 @@ export class TemplateEditor implements OnInit {
     return new TextEncoder().encode(this.draft.nfc.message.replace(/\{\{[^}]*\}\}/g, '')).length;
   }
 
+  protected imageCount() {
+    return Object.values(this.draft.images).filter(Boolean).length;
+  }
+
+  protected applyGenerated(images: Partial<Record<ImageSlot, string>>) {
+    Object.assign(this.draft.images, images);
+    this.cdr.markForCheck();
+  }
+
   protected imageSlots(): ImageSlotInfo[] {
     const slots: ImageSlotInfo[] = [
       { slot: 'icon', label: 'Icon', hint: 'Notifications and lock screen (Apple), 87×87' },
-      { slot: 'logo', label: 'Logo', hint: 'Apple 480×150 max; Google shows it as a circle' },
+      { slot: 'logo', label: 'Logo (Apple)', hint: 'Top-left, max 480×150' },
+      { slot: 'logoSquare', label: 'Square logo (Google)', hint: 'Shown as a circle, 660×660' },
     ];
     if (this.draft.kind === 'loyalty') slots.push({ slot: 'strip', label: 'Strip (Apple)', hint: '1125×432, behind the primary fields' });
     slots.push({ slot: 'hero', label: 'Hero (Google)', hint: '1032×336, at the bottom of the card' });

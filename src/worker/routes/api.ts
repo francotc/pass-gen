@@ -15,7 +15,7 @@ import { accessGuard } from '../middleware/access';
 export const store = (c: Context<AppEnv>) => new Store(c.env.PASSGEN, c.env.ENCRYPTION_KEY);
 export const ctxOf = (c: Context<AppEnv>): Ctx => ({ env: c.env, store: store(c), origin: new URL(c.req.url).origin });
 
-const MAX_IMAGE = 2 * 1024 * 1024;
+const MAX_IMAGE = 5 * 1024 * 1024;
 const PNG_SIG = [0x89, 0x50, 0x4e, 0x47];
 
 /** Serial legible y apto para Google (A-Z0-9). */
@@ -148,7 +148,7 @@ api.post('/images', async (c) => {
   const form = await c.req.parseBody();
   const bytes = await fileBytes(form.file);
   if (!bytes) throw new ValidationError('File is required');
-  if (bytes.length > MAX_IMAGE) throw new ValidationError('Image exceeds 2 MB');
+  if (bytes.length > MAX_IMAGE) throw new ValidationError('Image exceeds 5 MB');
   if (!PNG_SIG.every((b, i) => bytes[i] === b)) throw new ValidationError('Only PNG images are accepted');
   const meta = await store(c).putImage(randomToken(12), bytes, 'image/png');
   return c.json(meta, 201);

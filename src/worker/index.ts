@@ -54,7 +54,7 @@ app.get('/public/p/:serial/:token', async (c) => {
   // El SVG oficial de Google es opcional (ver README); sin él se muestra un botón de texto.
   const badge = await c.env.ASSETS.fetch(new Request(`${origin}/public/badges/add-to-google-wallet.svg`));
   const googleBadge = badge.ok && (badge.headers.get('content-type') ?? '').includes('svg');
-  const logo = tpl.images.logo ?? tpl.images.icon;
+  const logo = tpl.images.logoSquare ?? tpl.images.logo ?? tpl.images.icon;
 
   const html = renderHolderPage({
     template: tpl,

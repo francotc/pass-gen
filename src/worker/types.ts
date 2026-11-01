@@ -3,7 +3,7 @@
 export type PassKind = 'loyalty' | 'generic';
 export type BarcodeFormat = 'QR' | 'PDF417' | 'AZTEC' | 'CODE128';
 export type FieldSection = 'headerFields' | 'primaryFields' | 'secondaryFields' | 'auxiliaryFields' | 'backFields';
-export type ImageSlot = 'icon' | 'logo' | 'strip' | 'hero' | 'background';
+export type ImageSlot = 'icon' | 'logo' | 'logoSquare' | 'strip' | 'hero' | 'background';
 
 export const FIELD_SECTIONS: FieldSection[] = [
   'headerFields',

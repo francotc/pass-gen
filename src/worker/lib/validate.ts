@@ -27,7 +27,7 @@ export class ValidationError extends Error {}
 
 const KINDS: PassKind[] = ['loyalty', 'generic'];
 const FORMATS: BarcodeFormat[] = ['QR', 'PDF417', 'AZTEC', 'CODE128'];
-const SLOTS: ImageSlot[] = ['icon', 'logo', 'strip', 'hero', 'background'];
+const SLOTS: ImageSlot[] = ['icon', 'logo', 'logoSquare', 'strip', 'hero', 'background'];
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.slice(0, max) : '');
