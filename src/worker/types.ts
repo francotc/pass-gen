@@ -207,6 +207,16 @@ export interface SecuritySettings {
   noStripShine: boolean;
 }
 
+/**
+ * Idioma principal de los textos de la plantilla y sus traducciones,
+ * `translations[idioma BCP 47][texto original] = traducción`.
+ * Apple: {idioma}.lproj/pass.strings. Google: translatedValues de cada LocalizedString.
+ */
+export interface LocalizationSettings {
+  language: string;
+  translations: Record<string, Record<string, string>>;
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -231,6 +241,7 @@ export interface Template {
   otp: OtpSettings;
   brand?: BrandSettings;
   security: SecuritySettings;
+  localization?: LocalizationSettings;
   createdAt: string;
   updatedAt: string;
 }
@@ -281,6 +292,8 @@ export interface PassMessage {
   placement: AppleMessagePlacement;
   changeMessage: string;
   sentAt: string;
+  /** Traducciones ya renderizadas (Apple las lleva en pass.strings). */
+  translations?: MessageTranslation[];
 }
 
 export interface PassInput {

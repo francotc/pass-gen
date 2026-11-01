@@ -5,6 +5,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
   lucideImage,
+  lucideLanguages,
   lucideLocateFixed,
   lucideMousePointerClick,
   lucidePipette,
@@ -53,6 +54,7 @@ import { contrast } from '../../core/color';
 import { dominantColor } from '../../core/dominant-color';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
+import { LANGUAGE_TAG, LANGUAGES, languageName, pruneTranslations, translatableTexts } from '../../core/translations';
 import { ImageStudio } from '../../shared/image-studio';
 import { PassPreview } from '../../shared/pass-preview';
 
@@ -356,6 +358,98 @@ interface ImageSlotInfo {
                   <option value="MULTIPLE_HOLDERS">Anyone with the link</option>
                 </select>
               </div>
+            </div>
+          </section>
+
+          <section hlmCard aria-labelledby="tr-title">
+            <div hlmCardHeader>
+              <h2 hlmCardTitle id="tr-title" class="flex items-center gap-2"><ng-icon name="lucideLanguages" /> Translations</h2>
+              <p hlmCardDescription>
+                The pass shows in the phone's language when a translation exists. Apple gets one pass.strings per language; Google gets
+                translated values on every text. Placeholders like {{ '{{stamps}}' }} work in translations too.
+              </p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-4">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div class="flex flex-col gap-2">
+                  <label hlmLabel for="mainLang">Template language</label>
+                  <select hlmInput id="mainLang" name="mainLang" [ngModel]="draft.localization!.language" (ngModelChange)="setMainLanguage($event)">
+                    @for (l of languageOptions(draft.localization!.language); track l.code) {
+                      <option [value]="l.code">{{ l.name }} ({{ l.code }})</option>
+                    }
+                  </select>
+                  <p class="text-muted-foreground text-xs">The language the texts above are written in.</p>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label hlmLabel for="addLang">Add a language</label>
+                  <div class="flex gap-2">
+                    <input
+                      hlmInput
+                      id="addLang"
+                      name="addLang"
+                      class="min-w-0 flex-1"
+                      list="langList"
+                      placeholder="e.g. es, pt-BR"
+                      autocomplete="off"
+                      [(ngModel)]="newLanguage"
+                      (keydown.enter)="$event.preventDefault(); addLanguage()"
+                    />
+                    <datalist id="langList">
+                      @for (l of languages; track l.code) {
+                        <option [value]="l.code">{{ l.name }}</option>
+                      }
+                    </datalist>
+                    <button hlmBtn variant="outline" type="button" (click)="addLanguage()"><ng-icon name="lucidePlus" /> Add</button>
+                  </div>
+                </div>
+              </div>
+
+              @if (translationLangs().length) {
+                <div class="flex flex-wrap gap-2" role="tablist" aria-label="Translation language">
+                  @for (l of translationLangs(); track l) {
+                    <span class="inline-flex items-center rounded-md border" [class.border-primary]="l === editingLang()" [class.border-border]="l !== editingLang()">
+                      <button
+                        type="button"
+                        role="tab"
+                        class="px-2.5 py-1 text-sm"
+                        [attr.aria-selected]="l === editingLang()"
+                        (click)="editingLang.set(l)"
+                      >
+                        {{ languageName(l) }}
+                        <span class="text-muted-foreground text-xs">{{ translatedCount(l) }}/{{ texts().length }}</span>
+                      </button>
+                      <button type="button" class="text-muted-foreground hover:text-foreground px-1.5" [attr.aria-label]="'Remove ' + languageName(l)" (click)="removeLanguage(l)">
+                        <ng-icon name="lucideX" />
+                      </button>
+                    </span>
+                  }
+                </div>
+                @if (editingLang(); as lang) {
+                  <div class="flex flex-col gap-3" role="tabpanel">
+                    @for (x of texts(); track x.source; let i = $index) {
+                      <div class="grid gap-1 sm:grid-cols-2 sm:items-center sm:gap-3">
+                        <label class="flex min-w-0 flex-col text-sm" [for]="'tr-' + i">
+                          <span class="truncate" [title]="x.source">{{ x.source }}</span>
+                          <span class="text-muted-foreground text-xs">{{ x.context }}</span>
+                        </label>
+                        <input
+                          hlmInput
+                          [id]="'tr-' + i"
+                          [name]="'tr-' + lang + '-' + i"
+                          [attr.lang]="lang"
+                          [placeholder]="x.source"
+                          [ngModel]="draft.localization!.translations[lang][x.source] || ''"
+                          (ngModelChange)="draft.localization!.translations[lang][x.source] = $event"
+                        />
+                      </div>
+                    } @empty {
+                      <p class="text-muted-foreground text-sm">No texts to translate yet.</p>
+                    }
+                  </div>
+                }
+              } @else {
+                <p class="text-muted-foreground text-sm">No translations. The pass shows the template texts on every phone.</p>
+              }
             </div>
           </section>
 
@@ -813,6 +907,7 @@ export class TemplateEditor implements OnInit {
     if (id) {
       try {
         this.draft = toInput(await this.api.template(id));
+        this.editingLang.set(this.translationLangs()[0] ?? null);
         this.button = { label: '', url: '', ...this.draft.actions.button };
         this.appStoreIds = this.draft.actions.appStoreIds.join(', ');
       } catch (e) {
@@ -991,7 +1086,54 @@ export class TemplateEditor implements OnInit {
       .split(/[\s,]+/)
       .filter(Boolean)
       .map(Number);
-    return { ...this.draft, actions: { ...this.draft.actions, button, appStoreIds } };
+    const out = { ...this.draft, actions: { ...this.draft.actions, button, appStoreIds } };
+    return { ...out, localization: pruneTranslations(out) };
+  }
+
+  // Traducciones
+
+  protected readonly languages = LANGUAGES;
+  protected readonly languageName = languageName;
+  protected newLanguage = '';
+  protected readonly editingLang = signal<string | null>(null);
+
+  protected texts() {
+    const b = this.button;
+    return translatableTexts({ ...this.draft, actions: { ...this.draft.actions, button: b.label.trim() ? b : undefined } });
+  }
+
+  protected translationLangs() {
+    return Object.keys(this.draft.localization?.translations ?? {});
+  }
+
+  protected languageOptions(current: string) {
+    return LANGUAGES.some((l) => l.code === current) ? LANGUAGES : [{ code: current, name: current }, ...LANGUAGES];
+  }
+
+  protected translatedCount(lang: string) {
+    const map = this.draft.localization?.translations[lang] ?? {};
+    return this.texts().filter((x) => map[x.source]?.trim()).length;
+  }
+
+  protected setMainLanguage(lang: string) {
+    const loc = this.draft.localization!;
+    loc.language = lang;
+    if (loc.translations[lang]) this.removeLanguage(lang);
+  }
+
+  protected addLanguage() {
+    const code = this.newLanguage.trim();
+    const loc = this.draft.localization!;
+    if (!LANGUAGE_TAG.test(code)) return void toast.error('Use a language code like es, fr or pt-BR');
+    if (code === loc.language) return void toast.error('That is the template language');
+    loc.translations[code] ??= {};
+    this.editingLang.set(code);
+    this.newLanguage = '';
+  }
+
+  protected removeLanguage(lang: string) {
+    delete this.draft.localization!.translations[lang];
+    if (this.editingLang() === lang) this.editingLang.set(this.translationLangs()[0] ?? null);
   }
 
   protected async uploadModuleImage(i: number, ev: Event) {

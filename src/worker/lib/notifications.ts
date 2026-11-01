@@ -1,5 +1,6 @@
 import type { NotificationInput, NotificationRecord, NotificationResult, Pass, PassMessage, Template } from '../types';
 import { randomToken } from './crypto';
+import { DEFAULT_LANGUAGE } from './i18n';
 import { addMessage, classId, classResource, getAccessToken, localizedString, objectResource, type GoogleMessage } from './google/wallet';
 import { passVars, render } from './render';
 import { applePush, googleUpsertClass, type Ctx } from './sync';
@@ -25,7 +26,7 @@ async function resolveTargets(ctx: Ctx, input: NotificationInput): Promise<{ tem
 }
 
 /** Mensaje de Google con placeholders resueltos para `vars` (vacío para mensajes de class). */
-function googleMessage(input: NotificationInput, id: string, vars: Record<string, string>): GoogleMessage {
+function googleMessage(input: NotificationInput, id: string, vars: Record<string, string>, language: string): GoogleMessage {
   const r = (s: string) => render(s, vars);
   const body = input.link ? `${r(input.body)}\n${input.link}` : r(input.body);
   const { displayStart, displayEnd } = input.google;
@@ -37,10 +38,11 @@ function googleMessage(input: NotificationInput, id: string, vars: Record<string
     messageType: input.google.notify ? 'TEXT_AND_NOTIFY' : 'TEXT',
     ...(tr.length
       ? {
-          localizedHeader: localizedString(r(input.header), tr.map((t) => ({ language: t.language, value: r(t.header) }))),
+          localizedHeader: localizedString(r(input.header), tr.map((t) => ({ language: t.language, value: r(t.header) })), language),
           localizedBody: localizedString(
             body,
             tr.map((t) => ({ language: t.language, value: input.link ? `${r(t.body)}\n${input.link}` : r(t.body) })),
+            language,
           ),
         }
       : {}),
@@ -57,6 +59,7 @@ function googleMessage(input: NotificationInput, id: string, vars: Record<string
  */
 export async function sendNotification(ctx: Ctx, input: NotificationInput): Promise<NotificationRecord> {
   const { template, passes } = await resolveTargets(ctx, input);
+  const language = template.localization?.language || DEFAULT_LANGUAGE;
   const [as, gs] = await Promise.all([ctx.store.getAppleSettings(), ctx.store.getGoogleSettings()]);
   const id = randomToken(9).replace(/[-_]/g, 'x');
   const now = new Date().toISOString();
@@ -84,6 +87,9 @@ export async function sendNotification(ctx: Ctx, input: NotificationInput): Prom
           placement: input.apple.placement,
           changeMessage: render(input.apple.changeMessage, { ...vars, header }),
           sentAt: now,
+          ...(input.translations.length
+            ? { translations: input.translations.map((t) => ({ language: t.language, header: render(t.header, vars), body: render(t.body, vars) })) }
+            : {}),
         };
         pass.message = message;
         pass.updatedAt = now;
@@ -109,7 +115,7 @@ export async function sendNotification(ctx: Ctx, input: NotificationInput): Prom
         if (input.google.scope === 'class') {
           // La class tiene que existir antes de recibir mensajes.
           await googleUpsertClass(token, gs, template, ctx.origin);
-          await addMessage(token, classResource(template.kind), classId(gs.issuerId, template.id), googleMessage(input, id, {}));
+          await addMessage(token, classResource(template.kind), classId(gs.issuerId, template.id), googleMessage(input, id, {}, language));
           result.google.sent = 1;
         } else {
           for (const pass of passes) {
@@ -118,7 +124,7 @@ export async function sendNotification(ctx: Ctx, input: NotificationInput): Prom
               continue;
             }
             try {
-              await addMessage(token, objectResource(template.kind), pass.google.objectId, googleMessage(input, id, passVars(pass)));
+              await addMessage(token, objectResource(template.kind), pass.google.objectId, googleMessage(input, id, passVars(pass), language));
               result.google.sent++;
             } catch (e) {
               googleError(`${pass.serial}: ${errorText(e)}`);

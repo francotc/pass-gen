@@ -79,3 +79,25 @@ describe('marca', () => {
     expect(slugKey('  ')).toBe('field');
   });
 });
+
+describe('textos traducibles', async () => {
+  const { translatableTexts, pruneTranslations } = await import('../src/web/app/core/translations');
+  const { newTemplate } = await import('../src/web/app/core/template-utils');
+
+  it('lista textos visibles sin duplicados ni placeholders solos', () => {
+    const t = newTemplate();
+    const sources = translatableTexts(t).map((x) => x.source);
+    expect(sources).toContain('STAMPS');
+    expect(sources).not.toContain('{{stamps}} / 10'); // sin palabras para traducir
+    expect(sources).toContain('NEXT REWARD');
+    expect(sources).not.toContain('{{holderName}}');
+    expect(sources).not.toContain('{{serial}}');
+    expect(new Set(sources).size).toBe(sources.length);
+  });
+
+  it('descarta traducciones huérfanas o vacías', () => {
+    const t = newTemplate();
+    t.localization = { language: 'en', translations: { es: { STAMPS: 'SELLOS', Gone: 'Ya no', Terms: ' ' } } };
+    expect(pruneTranslations(t)).toEqual({ language: 'en', translations: { es: { STAMPS: 'SELLOS' } } });
+  });
+});

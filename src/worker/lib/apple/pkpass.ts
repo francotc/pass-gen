@@ -2,6 +2,7 @@ import { zipSync } from 'fflate';
 import forge from 'node-forge';
 import { NFC_MAX_BYTES, type AppleSettings, type BarcodeFormat, type Field, type FieldSection, type ImageSlot, type Pass, type PassMessage, type Template } from '../../types';
 import { b64ToBytes, sha1Hex } from '../crypto';
+import { DEFAULT_LANGUAGE, passStrings, translationLanguages } from '../i18n';
 import { otpBarcodeValue, type PassOtp } from '../otp';
 import { passVars, render } from '../render';
 
@@ -177,6 +178,32 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
   return JSON.parse(JSON.stringify(json));
 }
 
+/**
+ * Traducciones del pase por idioma. Wallet busca cada texto de pass.json (labels, valores,
+ * organizationName, description, logoText, relevantText…) como clave en {idioma}.lproj/pass.strings.
+ */
+export function appleStrings(t: Template, p: Pass): Map<string, [string, string][]> {
+  const vars = passVars(p);
+  const main = t.localization?.language || DEFAULT_LANGUAGE;
+  const out = new Map<string, [string, string][]>();
+  const add = (lang: string, key: string, value: string) => {
+    if (!key || !value.trim() || lang === main) return;
+    const list = out.get(lang) ?? [];
+    if (!list.some(([k]) => k === key)) list.push([key, value]);
+    out.set(lang, list);
+  };
+  for (const lang of translationLanguages(t)) {
+    for (const [src, dst] of Object.entries(t.localization!.translations[lang])) add(lang, render(src, vars), render(dst, vars));
+  }
+  for (const tr of p.message?.translations ?? []) {
+    add(tr.language, p.message!.header, tr.header);
+    add(tr.language, p.message!.body, tr.body);
+  }
+  // El idioma principal va con un .strings vacío para que iOS no elija una traducción como base.
+  if (out.size) out.set(main, []);
+  return out;
+}
+
 /** Firma PKCS#7 detached del manifest con el certificado del Pass Type ID y el WWDR. */
 export function signManifest(manifest: Uint8Array, s: AppleSettings): Uint8Array {
   const cert = forge.pki.certificateFromPem(s.certPem);
@@ -232,6 +259,7 @@ export async function buildPkpass(
     files['strip.png'] = images.strip;
     files['strip@2x.png'] = images.strip;
   }
+  for (const [lang, entries] of appleStrings(t, p)) files[`${lang}.lproj/pass.strings`] = passStrings(entries);
   const manifest: Record<string, string> = {};
   for (const [name, bytes] of Object.entries(files)) manifest[name] = await sha1Hex(bytes);
   const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));

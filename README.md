@@ -11,6 +11,7 @@ Un único Cloudflare Worker con [Hono](https://hono.dev) sirve:
 | `/v1/*` | [Web service de Apple Wallet](https://developer.apple.com/documentation/walletpasses/adding-a-web-service-to-update-passes) (registro de dispositivos y descarga del pase actualizado) | **Bypass** (token por pase) |
 | `/public/images/:id` | Imágenes que descarga Google Wallet | **Bypass** (ids aleatorios) |
 | `/public/passes/:serial/:token.pkpass` | Link de descarga del `.pkpass` para el titular | **Bypass** (token por pase) |
+| `/public/google/callback` | Callbacks de Google Wallet (pase guardado/eliminado) | **Bypass** (mensaje firmado por Google) |
 
 Todo se guarda en un namespace **KV**. Las credenciales se cifran con AES-GCM usando el secret `ENCRYPTION_KEY` y nunca vuelven al navegador.
 
@@ -159,6 +160,20 @@ Sección *Security & display* del editor (se aplica a los pases emitidos al guar
 | Quién puede guardarlo | Google | `multipleDevicesAndHoldersAllowedStatus` (class) |
 | Impedir compartir | Apple | `sharingProhibited` |
 | Quitar brillo del strip | Apple | `suppressStripShine` |
+
+## Estadísticas de instalación
+
+- **Apple**: cada registro/baja de dispositivo en el web service (`/v1/devices/...`) suma o resta un dispositivo; los tokens que APNs rechaza también cuentan como baja.
+- **Google**: cada class se publica con `callbackOptions.url = {origen}/public/google/callback`. Google envía un mensaje firmado (`ECv2SigningOnly`, sender `GooglePayPasses`, recipient = Issuer ID) en cada `save`/`del`; se verifica contra las claves de `https://pay.google.com/gp/m/issuer/keys` y se descarta el `nonce` repetido. Solo funciona con HTTPS (no en `wrangler dev`) y para clases publicadas después de este cambio: usá *Save and update passes* en cada plantilla.
+- La lista de pases muestra totales y una columna *Installed*; el detalle del pase muestra los últimos 20 eventos. `GET /api/stats` devuelve el resumen.
+
+## Traducciones
+
+Sección *Translations* del editor: idioma de la plantilla + idiomas adicionales. Cada texto visible (nombre del negocio y del programa, labels y valores de campos, links, botón, módulos, textos de ubicación) se traduce por separado; las traducciones aceptan `{{placeholders}}`.
+
+- **Apple**: `{idioma}.lproj/pass.strings` (UTF-16 con BOM) dentro del `.pkpass`, con el texto original como clave. Se agrega el `.lproj` del idioma principal vacío para que iOS no tome una traducción como base. Los mensajes enviados con traducciones también entran en `pass.strings`.
+- **Google**: `translatedValues` en cada `LocalizedString` (`localizedProgramName`, `localizedIssuerName`, `localizedHeader`/`localizedBody` de los módulos de texto, `loyaltyPoints.localizedLabel`, `cardTitle`/`header`/`subheader` del genérico, links, botón y módulos). El `defaultValue` usa el idioma de la plantilla.
+- Los códigos son BCP 47 (`es`, `pt-BR`, `es-419`). Al guardar se descartan traducciones vacías o de textos que ya no existen.
 
 ## Imágenes
 

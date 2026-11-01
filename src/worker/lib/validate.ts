@@ -5,6 +5,7 @@ import {
   type BrandSettings,
   type DeviceSharing,
   type SecuritySettings,
+  type LocalizationSettings,
   type AppleMessagePlacement,
   type MessageTranslation,
   type NotificationInput,
@@ -78,6 +79,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const otp = parseOtp(b.otp);
   const brand = b.brand === undefined ? undefined : parseBrand(b.brand);
   const security = parseSecurity(b.security);
+  const localization = b.localization === undefined ? undefined : parseLocalization(b.localization);
 
   const out = {
     name,
@@ -104,9 +106,33 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     otp,
     ...(brand ? { brand } : {}),
     security,
+    ...(localization ? { localization } : {}),
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
   return out;
+}
+
+const MAX_LANGUAGES = 15;
+const MAX_STRINGS = 300;
+
+function parseLocalization(v: unknown): LocalizationSettings {
+  const b = obj(v);
+  const language = str(b.language, 20).trim() || 'en';
+  if (!LANG.test(language)) throw new ValidationError('Invalid main language tag');
+  const raw = obj(b.translations);
+  const langs = Object.keys(raw);
+  if (langs.length > MAX_LANGUAGES) throw new ValidationError(`At most ${MAX_LANGUAGES} languages`);
+  const translations: Record<string, Record<string, string>> = {};
+  for (const lang of langs) {
+    if (!LANG.test(lang)) throw new ValidationError(`Invalid language tag: ${lang.slice(0, 20)}`);
+    if (lang === language) continue;
+    const entries = Object.entries(obj(raw[lang]))
+      .map(([k, val]) => [k.trim().slice(0, 1000), str(val, 1000)] as const)
+      .filter(([k]) => k);
+    if (entries.length > MAX_STRINGS) throw new ValidationError(`At most ${MAX_STRINGS} translated texts per language`);
+    translations[lang] = Object.fromEntries(entries);
+  }
+  return { language, translations };
 }
 
 /** SPKI de una clave P-256: 59 bytes (comprimida) o 91 (sin comprimir). */

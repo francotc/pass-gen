@@ -1,5 +1,6 @@
 import type { BarcodeFormat, Field, GoogleSettings, Pass, PassKind, Template } from '../../types';
 import { signJwt } from '../crypto';
+import { i18n, type I18n } from '../i18n';
 import { otpBarcodeValue, type PassOtp } from '../otp';
 import { passVars, render } from '../render';
 
@@ -29,9 +30,10 @@ const safeId = (s: string) => s.replace(/[^\w.-]/g, '_');
 export const classId = (issuerId: string, templateId: string) => `${issuerId}.${safeId(templateId)}`;
 export const objectId = (issuerId: string, serial: string) => `${issuerId}.${safeId(serial)}`;
 
-const localized = (value: string) => ({ defaultValue: { language: 'en', value } });
-const image = (uri: string | undefined, description: string) =>
-  uri ? { sourceUri: { uri }, contentDescription: localized(description) } : undefined;
+const image = (L: I18n, uri: string | undefined, description: string) =>
+  uri ? { sourceUri: { uri }, contentDescription: L.ls(description) } : undefined;
+/** LocalizedString solo si hay traducciones (para campos que también aceptan texto plano). */
+const lsIf = (L: I18n, source: string) => (L.tr(source).length ? L.ls(source) : undefined);
 
 export async function getAccessToken(sa: GoogleSettings): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -64,12 +66,13 @@ export interface ImageUrls {
 }
 
 export function buildClass(t: Template, issuerId: string, images: ImageUrls, callbackUrl?: string): Record<string, unknown> {
+  const L = i18n(t);
   const smartTap = t.nfc?.enabled ? { enableSmartTap: true, redemptionIssuers: [issuerId] } : {};
   // merchantLocations reemplaza al campo `locations` (deprecado, ya no notifica). El radio lo define Google.
   const points = t.locations?.points ?? [];
   const merchantLocations = points.length ? { merchantLocations: points.map((l) => ({ latitude: l.latitude, longitude: l.longitude })) } : {};
   // Google no tiene fondo a pantalla completa: la imagen va a lo ancho en el detalle del pase.
-  const imageModules = images.background ? { imageModulesData: [{ id: 'background', mainImage: image(images.background, t.name) }] } : {};
+  const imageModules = images.background ? { imageModulesData: [{ id: 'background', mainImage: image(L, images.background, t.name) }] } : {};
   const sec = t.security;
   const security = {
     ...(sec?.googleShimmer ? { securityAnimation: { animationType: 'FOIL_SHIMMER' } } : {}),
@@ -84,23 +87,32 @@ export function buildClass(t: Template, issuerId: string, images: ImageUrls, cal
     JSON.stringify({
       ...base,
       issuerName: t.google.issuerName || t.organizationName,
+      localizedIssuerName: lsIf(L, t.google.issuerName || t.organizationName),
       programName: t.google.programName || t.name,
-      programLogo: image(images.logo, t.organizationName),
-      wideProgramLogo: t.google.wideLogo ? image(images.wideLogo, t.organizationName) : undefined,
+      localizedProgramName: lsIf(L, t.google.programName || t.name),
+      programLogo: image(L, images.logo, t.organizationName),
+      wideProgramLogo: t.google.wideLogo ? image(L, images.wideLogo, t.organizationName) : undefined,
       hexBackgroundColor: t.colors.background,
       reviewStatus: 'UNDER_REVIEW',
     }),
   );
 }
 
-function textModules(fields: Field[], vars: Record<string, string>) {
+function textModules(fields: Field[], vars: Record<string, string>, L: I18n) {
   return fields
-    .map((f) => ({ id: safeId(f.key), header: render(f.label, vars), body: render(f.value, vars) }))
+    .map((f) => ({
+      id: safeId(f.key),
+      header: render(f.label, vars),
+      body: render(f.value, vars),
+      localizedHeader: lsIf(L, f.label),
+      localizedBody: lsIf(L, f.value),
+    }))
     .filter((m) => m.body);
 }
 
 export function buildObject(t: Template, p: Pass, issuerId: string, images: ImageUrls, otp?: PassOtp, emailSha256?: string): Record<string, unknown> {
   const vars = passVars(p);
+  const L = i18n(t, vars);
   const [lead, ...rest] = [...t.headerFields, ...t.primaryFields];
   const others = [...rest, ...t.secondaryFields, ...t.auxiliaryFields, ...t.backFields];
   const common = {
@@ -109,7 +121,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
     classId: classId(issuerId, t.id),
     state: p.voided ? 'INACTIVE' : 'ACTIVE',
     hexBackgroundColor: t.colors.background,
-    heroImage: image(images.hero, t.name),
+    heroImage: image(L, images.hero, t.name),
     barcode: t.barcode.message
       ? {
           type: BARCODE[t.barcode.format],
@@ -119,7 +131,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
       : undefined,
   };
 
-  Object.assign(common, actionModules(t, vars, images));
+  Object.assign(common, actionModules(t, vars, images, L));
   if (t.security && !t.security.screenshots) Object.assign(common, { passConstraints: { screenshotEligibility: 'INELIGIBLE' } });
   if (t.security?.restrictToEmail && emailSha256) Object.assign(common, { saveRestrictions: { restrictToEmailSha256: emailSha256 } });
   if (otp) {
@@ -146,18 +158,18 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
           accountId: p.serial,
           accountName: p.holderName,
           loyaltyPoints: lead
-            ? { label: render(lead.label, vars), balance: { string: render(lead.value, vars) } }
+            ? { label: render(lead.label, vars), localizedLabel: lsIf(L, lead.label), balance: { string: render(lead.value, vars) } }
             : undefined,
-          textModulesData: textModules(others, vars),
+          textModulesData: textModules(others, vars, L),
         }
       : {
           ...common,
-          cardTitle: localized(t.organizationName || t.name),
-          header: localized(lead ? render(lead.value, vars) : p.holderName),
-          subheader: lead ? localized(render(lead.label, vars)) : undefined,
-          logo: image(images.logo, t.organizationName),
-          wideLogo: t.google.wideLogo ? image(images.wideLogo, t.organizationName) : undefined,
-          textModulesData: textModules(lead ? others : [...rest, ...others], vars),
+          cardTitle: L.ls(t.organizationName || t.name),
+          header: lead ? L.ls(lead.value) : L.ls(p.holderName, p.holderName),
+          subheader: lead ? L.ls(lead.label) : undefined,
+          logo: image(L, images.logo, t.organizationName),
+          wideLogo: t.google.wideLogo ? image(L, images.wideLogo, t.organizationName) : undefined,
+          textModulesData: textModules(lead ? others : [...rest, ...others], vars, L),
         };
   return JSON.parse(JSON.stringify(obj));
 }
@@ -166,18 +178,18 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
  * Links, botón y módulos van en el object (no en la class) para poder usar placeholders por pase.
  * AppLinkData del object reemplaza al de la class; links y módulos se suman.
  */
-function actionModules(t: Template, vars: Record<string, string>, images: ImageUrls): Record<string, unknown> {
+function actionModules(t: Template, vars: Record<string, string>, images: ImageUrls, L: I18n): Record<string, unknown> {
   const a = t.actions;
   if (!a) return {};
   const r = (s: string) => render(s, vars);
   const out: Record<string, unknown> = {};
   if (a.links.length) {
-    out.linksModuleData = { uris: a.links.map((l, i) => ({ id: `link${i}`, uri: r(l.url), description: r(l.label) })) };
+    out.linksModuleData = { uris: a.links.map((l, i) => ({ id: `link${i}`, uri: r(l.url), description: r(l.label), localizedDescription: lsIf(L, l.label) })) };
   }
   if (a.button) {
     const uri = r(a.button.url);
     out.appLinkData = {
-      displayText: localized(a.button.label),
+      displayText: L.ls(a.button.label),
       webAppLinkInfo: { appTarget: { targetUri: { uri, description: a.button.label } } },
       ...(a.button.androidPackage ? { androidAppLinkInfo: { appTarget: { packageName: a.button.androidPackage } } } : {}),
     };
@@ -186,10 +198,10 @@ function actionModules(t: Template, vars: Record<string, string>, images: ImageU
     out.valueAddedModuleData = a.modules.map((m, i) => {
       const img = m.imageId ? images.byId?.(m.imageId) : undefined;
       return {
-        ...(m.header ? { header: localized(r(m.header)) } : {}),
-        ...(m.body ? { body: localized(r(m.body)) } : {}),
+        ...(m.header ? { header: L.ls(m.header) } : {}),
+        ...(m.body ? { body: L.ls(m.body) } : {}),
         ...(m.url ? { uri: r(m.url) } : {}),
-        ...(img ? { image: image(img, m.header || m.body) } : {}),
+        ...(img ? { image: image(L, img, m.header || m.body) } : {}),
         sortIndex: i,
         ...(m.displayStart || m.displayEnd
           ? {
@@ -253,9 +265,9 @@ export async function addMessage(token: string, resource: Resource, resourceId: 
 }
 
 /** Arma un LocalizedString de Google a partir del valor por defecto y sus traducciones. */
-export function localizedString(defaultValue: string, translations: { language: string; value: string }[]) {
+export function localizedString(defaultValue: string, translations: { language: string; value: string }[], language = 'en') {
   return {
-    defaultValue: { language: 'en', value: defaultValue },
+    defaultValue: { language, value: defaultValue },
     ...(translations.length ? { translatedValues: translations.map((t) => ({ language: t.language, value: t.value })) } : {}),
   };
 }
