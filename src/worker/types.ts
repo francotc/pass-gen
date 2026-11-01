@@ -162,6 +162,30 @@ export interface OtpSettings {
   googlePeriodSeconds: number;
 }
 
+/** Valores del pase que se generan desde la marca (salvo que se personalicen). */
+export const BRAND_FIELDS = [
+  'organizationName',
+  'logoText',
+  'description',
+  'issuerName',
+  'programName',
+  'background',
+  'foreground',
+  'label',
+  'altText',
+] as const;
+export type BrandField = (typeof BRAND_FIELDS)[number];
+
+/** Datos de marca del editor; el Worker usa los valores ya generados en la plantilla. */
+export interface BrandSettings {
+  businessName: string;
+  programName: string;
+  /** Color de marca (#rrggbb): fondo; texto y etiquetas se calculan por contraste. */
+  color: string;
+  /** Valores personalizados a mano (no se regeneran). */
+  overrides: BrandField[];
+}
+
 export interface Template {
   id: string;
   name: string;
@@ -183,6 +207,7 @@ export interface Template {
   actions: ActionSettings;
   background: BackgroundSettings;
   otp: OtpSettings;
+  brand?: BrandSettings;
   createdAt: string;
   updatedAt: string;
 }

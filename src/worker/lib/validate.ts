@@ -1,5 +1,8 @@
 import {
   FIELD_SECTIONS,
+  BRAND_FIELDS,
+  type BrandField,
+  type BrandSettings,
   type AppleMessagePlacement,
   type MessageTranslation,
   type NotificationInput,
@@ -71,6 +74,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const actions = parseActions(b.actions);
   const background = { poster: obj(b.background).poster === true };
   const otp = parseOtp(b.otp);
+  const brand = b.brand === undefined ? undefined : parseBrand(b.brand);
 
   const out = {
     name,
@@ -91,6 +95,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     actions,
     background,
     otp,
+    ...(brand ? { brand } : {}),
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
   return out;
@@ -249,6 +254,17 @@ function optionalIso(v: unknown, name: string): string | undefined {
   if (!s) return undefined;
   if (Number.isNaN(Date.parse(s))) throw new ValidationError(`Invalid date: ${name}`);
   return new Date(s).toISOString();
+}
+
+function parseBrand(v: unknown): BrandSettings {
+  const b = obj(v);
+  const overrides = Array.isArray(b.overrides) ? b.overrides.filter((f): f is BrandField => BRAND_FIELDS.includes(f as BrandField)) : [];
+  return {
+    businessName: str(b.businessName, 120).trim(),
+    programName: str(b.programName, 120).trim(),
+    color: color(b.color, 'brand'),
+    overrides: [...new Set(overrides)],
+  };
 }
 
 function parseOtp(v: unknown): OtpSettings {

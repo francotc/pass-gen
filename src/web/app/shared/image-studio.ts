@@ -5,6 +5,7 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import type { ImageSlot, PassKind } from '../../../worker/types';
 import { Api, errorMessage } from '../core/api.service';
+import { dominantColor } from '../core/color';
 import { fitToBox, ImageCropper, loadImage } from './image-cropper';
 
 /** Recorte desde la imagen de portada: slot, tamaño de salida y relación de aspecto. */
@@ -30,7 +31,10 @@ interface CoverTarget {
       <div class="flex flex-col gap-3">
         <div>
           <span class="text-sm font-medium">Logo</span>
-          <p class="text-muted-foreground text-xs">Square crop for the Google logo and the Apple icon; Apple's top-left logo keeps the full shape.</p>
+          <p class="text-muted-foreground text-xs">
+            Square crop for the Google logo and the Apple icon; Apple's top-left logo keeps the full shape. A PNG with transparency
+            works best, and its main color can become the brand color.
+          </p>
         </div>
         @if (logo(); as img) {
           <app-image-cropper #logoCrop [image]="img" [aspect]="1" [allowContain]="true" label="Square logo" hint="660 × 660 · icon 87 × 87" />
@@ -41,7 +45,7 @@ interface CoverTarget {
         } @else {
           <input #logoFile type="file" accept="image/png,image/jpeg,image/webp" class="hidden" (change)="pick('logo', $event)" />
           <button hlmBtn variant="outline" type="button" class="h-24 border-dashed" (click)="logoFile.click()">
-            <ng-icon name="lucideImagePlus" /> Upload logo (PNG with transparency works best)
+            <ng-icon name="lucideImagePlus" /> Upload logo
           </button>
         }
       </div>
@@ -76,6 +80,8 @@ export class ImageStudio {
   readonly poster = input(false);
   /** Imágenes generadas y subidas: slot → id. */
   readonly generated = output<Partial<Record<ImageSlot, string>>>();
+  /** Color dominante del logo, para sugerirlo como color de marca. */
+  readonly logoColor = output<string>();
 
   protected readonly logo = signal<HTMLImageElement | null>(null);
   protected readonly cover = signal<HTMLImageElement | null>(null);
@@ -118,6 +124,8 @@ export class ImageStudio {
       const [square, icon, wide] = await Promise.all([crop.export(660), crop.export(87), fitToBox(img, 480, 150)]);
       const [logoSquare, iconId, logoId] = await Promise.all([this.upload(square, 'logo-square'), this.upload(icon, 'icon'), this.upload(wide, 'logo')]);
       this.generated.emit({ logoSquare, icon: iconId, logo: logoId });
+      const color = dominantColor(img);
+      if (color) this.logoColor.emit(color);
       this.logo.set(null);
       toast.success('Logo assets generated', { description: 'Google logo, Apple icon and Apple logo.' });
     } catch (e) {

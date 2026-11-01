@@ -130,6 +130,23 @@ Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: 
 
 Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
 
+## Marca y valores generados
+
+En *General* se cargan tres datos y el editor genera el resto (como con las imágenes):
+
+| Dato | Genera |
+|---|---|
+| Nombre del negocio | Organización y texto del logo (Apple), emisor (Google) |
+| Nombre del programa | Programa (Google) y descripción de accesibilidad (`Programa · Negocio`) |
+| Color de marca | Fondo; texto blanco o negro según el mejor contraste (WCAG) y etiquetas atenuadas con contraste ≥ 3:1 |
+
+Además:
+- **Color desde el logo:** al generar el logo se sugiere su color dominante; también con *From logo*.
+- **Texto debajo del código:** copia el contenido del código.
+- **Claves de campo:** se generan desde la etiqueta (`Próximo premio` → `proximo_premio`) mientras no se editen a mano.
+
+Cualquier valor generado se puede editar en *Generated values*; queda como personalizado y no se regenera hasta volver a *Auto*. La marca se guarda en `brand` de la plantilla; el Worker usa los valores ya generados.
+
 ## Imágenes
 
 En *Appearance* se suben dos imágenes y el editor genera todas las demás en el navegador, recortando con proporción fija (arrastrar para mover, rueda o slider para el zoom):

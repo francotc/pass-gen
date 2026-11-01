@@ -52,6 +52,7 @@ export function newTemplate(): TemplateInput {
     actions: { links: [], modules: [], featured: [], appStoreIds: [] },
     background: { poster: false },
     otp: { enabled: false, googlePeriodSeconds: 30 },
+    brand: { businessName: '[Your business]', programName: 'Stamp card', color: '#171717', overrides: [] },
   };
 }
 

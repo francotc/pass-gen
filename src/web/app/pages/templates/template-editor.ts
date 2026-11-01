@@ -7,6 +7,8 @@ import {
   lucideImage,
   lucideLocateFixed,
   lucideMousePointerClick,
+  lucidePipette,
+  lucideRotateCcw,
   lucideMapPin,
   lucideNfc,
   lucidePlus,
@@ -18,6 +20,7 @@ import {
   lucideX,
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
+import { HlmBadgeImports } from '@spartan-ng/helm/badge';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmInputImports } from '@spartan-ng/helm/input';
@@ -33,6 +36,10 @@ import {
   MAX_LOCATIONS,
   MAX_MODULES,
   NFC_MAX_BYTES,
+  BRAND_FIELDS,
+  type BrandField,
+  type BrandSettings,
+  type Field,
   type FeaturedActionType,
   type FieldSection,
   type ImageSlot,
@@ -40,6 +47,8 @@ import {
   type TemplateInput,
 } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
+import { applyBrand, BRAND_FIELD_LABELS, brandFromTemplate, COLOR_FIELDS, getField, setField, slugKey } from '../../core/brand';
+import { contrast, dominantColor } from '../../core/color';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
 import { ImageStudio } from '../../shared/image-studio';
@@ -59,6 +68,7 @@ interface ImageSlotInfo {
     NgIcon,
     PassPreview,
     ImageStudio,
+    HlmBadgeImports,
     HlmButtonImports,
     HlmCardImports,
     HlmInputImports,
@@ -68,7 +78,7 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucidePipette, lucideRotateCcw, lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -98,7 +108,7 @@ interface ImageSlotInfo {
             <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="name">Internal name</label>
-                <input hlmInput id="name" name="name" required [(ngModel)]="draft.name" />
+                <input hlmInput id="name" name="name" required [(ngModel)]="draft.name" (ngModelChange)="refresh()" />
               </div>
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="kind">Pass type</label>
@@ -108,27 +118,67 @@ interface ImageSlotInfo {
                 </select>
               </div>
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="org">Organization</label>
-                <input hlmInput id="org" name="org" [(ngModel)]="draft.organizationName" />
+                <label hlmLabel for="business">Business name</label>
+                <input hlmInput id="business" name="business" placeholder="Café Central" [(ngModel)]="brand.businessName" (ngModelChange)="refresh()" />
               </div>
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="logoText">Logo text (Apple)</label>
-                <input hlmInput id="logoText" name="logoText" [(ngModel)]="draft.logoText" />
+                <label hlmLabel for="programName">{{ draft.kind === 'loyalty' ? 'Program name' : 'Pass title' }}</label>
+                <input hlmInput id="programName" name="programName" placeholder="Stamp card" [(ngModel)]="brand.programName" (ngModelChange)="refresh()" />
               </div>
               <div class="flex flex-col gap-2 sm:col-span-2">
-                <label hlmLabel for="desc">Description (Apple accessibility)</label>
-                <input hlmInput id="desc" name="desc" [(ngModel)]="draft.description" />
+                <label hlmLabel for="brandColor">Brand color</label>
+                <div class="flex flex-wrap items-center gap-2">
+                  <input
+                    type="color"
+                    class="border-input size-9 shrink-0 cursor-pointer rounded-md border bg-transparent p-1"
+                    aria-label="Brand color"
+                    name="brandColorPicker"
+                    [(ngModel)]="brand.color"
+                    (ngModelChange)="refresh()"
+                  />
+                  <input hlmInput id="brandColor" name="brandColor" class="w-32 font-mono" [(ngModel)]="brand.color" (ngModelChange)="refresh()" />
+                  <button hlmBtn variant="outline" size="sm" type="button" [disabled]="!logoImageId()" (click)="useLogoColor()">
+                    <ng-icon name="lucidePipette" /> From logo
+                  </button>
+                  <span class="text-muted-foreground text-xs">Text and label colors are picked for contrast.</span>
+                </div>
               </div>
-              @if (draft.kind === 'loyalty') {
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="program">Program name (Google)</label>
-                  <input hlmInput id="program" name="program" [(ngModel)]="draft.google.programName" />
+
+              <details class="sm:col-span-2">
+                <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-sm">
+                  Generated values ({{ customCount() }} customized) · edit any of them
+                </summary>
+                <div class="mt-3 flex flex-col gap-2">
+                  @for (f of brandFields; track f) {
+                    <div class="flex flex-col gap-1">
+                      <label hlmLabel class="text-xs" [for]="'bf-' + f">{{ brandLabels[f].label }}</label>
+                      <div class="flex items-center gap-2">
+                        @if (isColor(f)) {
+                          <input
+                            type="color"
+                            class="border-input size-9 shrink-0 cursor-pointer rounded-md border bg-transparent p-1"
+                            [attr.aria-label]="brandLabels[f].label"
+                            [name]="'bfc-' + f"
+                            [ngModel]="get(f)"
+                            (ngModelChange)="override(f, $event)"
+                          />
+                        }
+                        <input hlmInput class="min-w-0 flex-1" [class.font-mono]="isColor(f)" [id]="'bf-' + f" [name]="'bf-' + f" [ngModel]="get(f)" (ngModelChange)="override(f, $event)" />
+                        @if (f === 'foreground' || f === 'label') {
+                          <span class="text-muted-foreground w-14 shrink-0 text-right text-xs" [class.text-destructive]="contrastOf(f) < (f === 'label' ? 3 : 4.5)">
+                            {{ contrastOf(f).toFixed(1) }}:1
+                          </span>
+                        }
+                        @if (isAuto(f)) {
+                          <span hlmBadge variant="secondary">Auto</span>
+                        } @else {
+                          <button hlmBtn variant="ghost" size="sm" type="button" (click)="resetField(f)"><ng-icon name="lucideRotateCcw" /> Auto</button>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="issuerName">Issuer name (Google)</label>
-                  <input hlmInput id="issuerName" name="issuerName" [placeholder]="draft.organizationName" [(ngModel)]="draft.google.issuerName" />
-                </div>
-              }
+              </details>
             </div>
           </section>
 
@@ -137,25 +187,7 @@ interface ImageSlotInfo {
               <h2 hlmCardTitle>Appearance</h2>
             </div>
             <div hlmCardContent class="flex flex-col gap-5">
-              <div class="grid gap-4 sm:grid-cols-3">
-                @for (c of colorFields; track c.key) {
-                  <div class="flex flex-col gap-2">
-                    <label hlmLabel [for]="'color-' + c.key">{{ c.label }}</label>
-                    <div class="flex items-center gap-2">
-                      <input
-                        type="color"
-                        class="border-input size-9 shrink-0 cursor-pointer rounded-md border bg-transparent p-1"
-                        [attr.aria-label]="c.label"
-                        [name]="'picker-' + c.key"
-                        [(ngModel)]="draft.colors[c.key]"
-                      />
-                      <input hlmInput class="font-mono" [id]="'color-' + c.key" [name]="'color-' + c.key" [(ngModel)]="draft.colors[c.key]" />
-                    </div>
-                  </div>
-                }
-              </div>
-              <hlm-separator />
-              <app-image-studio [kind]="draft.kind" [poster]="draft.background.poster" (generated)="applyGenerated($event)" />
+              <app-image-studio [kind]="draft.kind" [poster]="draft.background.poster" (generated)="applyGenerated($event)" (logoColor)="onLogoColor($event)" />
               <details class="group">
                 <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-sm">
                   Generated images ({{ imageCount() }}) · replace one individually
@@ -213,10 +245,10 @@ interface ImageSlotInfo {
                   <div [hlmTabsContent]="s" class="flex flex-col gap-3 pt-3">
                     <p class="text-muted-foreground text-xs">{{ sectionLabels[s].hint }}</p>
                     @for (f of draft[s]; track $index; let i = $index) {
-                      <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[7rem_1fr_1.5fr_auto]">
-                        <input hlmInput aria-label="Key" placeholder="key" [name]="s + '-key-' + i" [(ngModel)]="f.key" />
-                        <input hlmInput aria-label="Label" placeholder="Label" [name]="s + '-label-' + i" [(ngModel)]="f.label" />
+                      <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1.5fr_8rem_auto]">
+                        <input hlmInput aria-label="Label" placeholder="Label" [name]="s + '-label-' + i" [ngModel]="f.label" (ngModelChange)="onLabel(f, $event)" />
                         <input hlmInput aria-label="Value" placeholder="Value or {{ '{{data}}' }}" [name]="s + '-value-' + i" [(ngModel)]="f.value" />
+                        <input hlmInput class="font-mono text-xs" aria-label="Key (auto from label)" placeholder="key" [name]="s + '-key-' + i" [(ngModel)]="f.key" />
                         <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove field" (click)="removeField(s, i)">
                           <ng-icon name="lucideTrash2" />
                         </button>
@@ -257,11 +289,18 @@ interface ImageSlotInfo {
               </div>
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="bcMessage">Content</label>
-                <input hlmInput id="bcMessage" name="bcMessage" placeholder="Empty = no barcode" [(ngModel)]="draft.barcode.message" />
+                <input hlmInput id="bcMessage" name="bcMessage" placeholder="Empty = no barcode" [(ngModel)]="draft.barcode.message" (ngModelChange)="refresh()" />
               </div>
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="bcAlt">Text below</label>
-                <input hlmInput id="bcAlt" name="bcAlt" [(ngModel)]="draft.barcode.altText" />
+                <label hlmLabel for="bcAlt" class="flex items-center justify-between gap-2">
+                  Text below
+                  @if (isAuto('altText')) {
+                    <span hlmBadge variant="secondary">Auto</span>
+                  } @else {
+                    <button hlmBtn variant="link" size="xs" type="button" (click)="resetField('altText')">Reset</button>
+                  }
+                </label>
+                <input hlmInput id="bcAlt" name="bcAlt" [ngModel]="get('altText')" (ngModelChange)="override('altText', $event)" />
               </div>
             </div>
           </section>
@@ -682,11 +721,12 @@ export class TemplateEditor implements OnInit {
     { value: 'listenToMusic', label: 'Listen to music' },
   ];
   protected readonly locating = signal(false);
-  protected readonly colorFields: { key: keyof TemplateInput['colors']; label: string }[] = [
-    { key: 'background', label: 'Background' },
-    { key: 'foreground', label: 'Text' },
-    { key: 'label', label: 'Labels' },
-  ];
+  protected readonly brandFields = BRAND_FIELDS.filter((f) => f !== 'altText');
+  protected readonly brandLabels = BRAND_FIELD_LABELS;
+  /** Marca del draft (siempre presente en el editor). */
+  protected get brand(): BrandSettings {
+    return this.draft.brand!;
+  }
 
   protected keys() {
     return placeholderKeys(this.draft);
@@ -730,10 +770,99 @@ export class TemplateEditor implements OnInit {
         return;
       }
     }
+    this.draft.brand ??= brandFromTemplate(this.draft);
+    applyBrand(this.draft);
     // La vista previa lee el botón desde el draft; se comparte la referencia mientras se edita.
     this.draft.actions.button = this.button;
     this.savedCodeSignature = this.codeSignature(this.draft);
     this.loaded.set(true);
+  }
+
+  /** Regenera los valores automáticos (marca, colores, texto del código). */
+  protected refresh() {
+    applyBrand(this.draft);
+  }
+
+  protected get(f: BrandField) {
+    return getField(this.draft, f);
+  }
+
+  protected isAuto(f: BrandField) {
+    return !this.brand.overrides.includes(f);
+  }
+
+  protected isColor(f: BrandField) {
+    return COLOR_FIELDS.includes(f);
+  }
+
+  protected customCount() {
+    return this.brand.overrides.filter((f) => f !== 'altText').length;
+  }
+
+  protected contrastOf(f: 'foreground' | 'label') {
+    return contrast(this.draft.colors[f], this.draft.colors.background);
+  }
+
+  /** Editar un valor generado lo deja personalizado (ya no se regenera). */
+  protected override(f: BrandField, v: string) {
+    setField(this.draft, f, v);
+    if (this.isAuto(f)) this.brand.overrides.push(f);
+  }
+
+  protected resetField(f: BrandField) {
+    this.brand.overrides = this.brand.overrides.filter((x) => x !== f);
+    applyBrand(this.draft);
+  }
+
+  protected logoImageId() {
+    return this.draft.images.logoSquare ?? this.draft.images.logo ?? this.draft.images.icon;
+  }
+
+  /** Color dominante del logo subido como color de marca. */
+  protected async useLogoColor() {
+    const id = this.logoImageId();
+    if (!id) return;
+    try {
+      const img = new Image();
+      img.src = this.api.imageUrl(id);
+      await img.decode();
+      const c = dominantColor(img);
+      if (!c) {
+        toast.warning('Could not find a clear color in the logo');
+        return;
+      }
+      this.setBrandColor(c);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
+  protected onLogoColor(c: string) {
+    if (c.toLowerCase() === this.brand.color.toLowerCase()) return;
+    toast('Use the logo color for the pass?', {
+      description: c,
+      action: { label: 'Use it', onClick: () => this.setBrandColor(c) },
+    });
+  }
+
+  private setBrandColor(c: string) {
+    this.brand.color = c;
+    applyBrand(this.draft);
+    this.cdr.markForCheck();
+  }
+
+  /** Etiqueta de campo: la clave se genera sola mientras no se haya editado a mano. */
+  protected onLabel(f: Field, label: string) {
+    const auto = !f.key || /^field\d*$/.test(f.key) || f.key === slugKey(f.label);
+    f.label = label;
+    if (auto) f.key = this.uniqueKey(slugKey(label), f);
+  }
+
+  private uniqueKey(base: string, self: Field) {
+    const used = new Set(FIELD_SECTIONS.flatMap((sec) => this.draft[sec].filter((x) => x !== self).map((x) => x.key)));
+    let key = base;
+    for (let n = 2; used.has(key); n++) key = `${base}_${n}`;
+    return key;
   }
 
   protected addField(s: FieldSection) {
