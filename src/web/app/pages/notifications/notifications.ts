@@ -170,7 +170,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
               notification when its value changes.
             </p>
             <div hlmCardAction>
-              <hlm-switch id="appleEnabled" name="appleEnabled" aria-label="Send to Apple Wallet" [(ngModel)]="d.apple.enabled" />
+              <hlm-switch inputId="appleEnabled" name="appleEnabled" aria-label="Send to Apple Wallet" [(ngModel)]="d.apple.enabled" />
             </div>
           </div>
           @if (d.apple.enabled) {
@@ -203,7 +203,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
             <h2 hlmCardTitle>Google Wallet</h2>
             <p hlmCardDescription>Adds a message to the pass details; optionally also sends a push notification.</p>
             <div hlmCardAction>
-              <hlm-switch id="googleEnabled" name="googleEnabled" aria-label="Send to Google Wallet" [(ngModel)]="d.google.enabled" />
+              <hlm-switch inputId="googleEnabled" name="googleEnabled" aria-label="Send to Google Wallet" [(ngModel)]="d.google.enabled" />
             </div>
           </div>
           @if (d.google.enabled) {
@@ -215,7 +215,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
                     TEXT_AND_NOTIFY. Google allows 3 notifications per pass every 24 hours; off sends a silent message (TEXT).
                   </span>
                 </span>
-                <hlm-switch id="googleNotify" name="googleNotify" [(ngModel)]="d.google.notify" />
+                <hlm-switch inputId="googleNotify" name="googleNotify" [(ngModel)]="d.google.notify" />
               </label>
               @if (d.targetType === 'template') {
                 <div class="flex flex-col gap-2 sm:col-span-2">

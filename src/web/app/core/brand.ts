@@ -2,6 +2,7 @@ import { BRAND_FIELDS, type BrandField, type BrandSettings, type TemplateInput }
 import { labelOn, textOn } from './color';
 
 export const BRAND_FIELD_LABELS: Record<BrandField, { label: string; group: 'Identity' | 'Colors' | 'Barcode' }> = {
+  name: { label: 'Internal name (template list)', group: 'Identity' },
   organizationName: { label: 'Organization (Apple)', group: 'Identity' },
   logoText: { label: 'Logo text (Apple)', group: 'Identity' },
   description: { label: 'Description (Apple accessibility)', group: 'Identity' },
@@ -20,11 +21,12 @@ export function deriveBrand(t: TemplateInput, b: BrandSettings): Record<BrandFie
   const business = b.businessName.trim();
   const program = b.programName.trim();
   return {
+    name: business && program ? `${business} · ${program}` : business || program || 'Untitled template',
     organizationName: business,
     logoText: business,
     description: program && business ? `${program} · ${business}` : program || business,
     issuerName: business,
-    programName: program || t.name,
+    programName: program || business,
     background: b.color,
     foreground: textOn(b.color),
     label: labelOn(b.color),

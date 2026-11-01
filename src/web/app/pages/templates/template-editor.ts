@@ -8,6 +8,7 @@ import {
   lucideLocateFixed,
   lucideMousePointerClick,
   lucidePipette,
+  lucideSparkles,
   lucideRotateCcw,
   lucideMapPin,
   lucideNfc,
@@ -79,7 +80,7 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucidePipette, lucideRotateCcw, lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucideSparkles, lucidePipette, lucideRotateCcw, lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -107,11 +108,7 @@ interface ImageSlotInfo {
               <h2 hlmCardTitle>General</h2>
             </div>
             <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
-              <div class="flex flex-col gap-2">
-                <label hlmLabel for="name">Internal name</label>
-                <input hlmInput id="name" name="name" required [(ngModel)]="draft.name" (ngModelChange)="refresh()" />
-              </div>
-              <div class="flex flex-col gap-2">
+              <div class="flex flex-col gap-2 sm:col-span-2">
                 <label hlmLabel for="kind">Pass type</label>
                 <select hlmInput id="kind" name="kind" [disabled]="!!id()" [(ngModel)]="draft.kind">
                   <option value="loyalty">Loyalty (storeCard · LoyaltyObject)</option>
@@ -314,7 +311,7 @@ interface ImageSlotInfo {
                 the phone; Apple changes it every 24 h (daily update at 00:01 UTC) and each code is valid for 48 h.
               </p>
               <div hlmCardAction>
-                <hlm-switch id="otpEnabled" name="otpEnabled" aria-label="Enable one-time code" [(ngModel)]="draft.otp.enabled" />
+                <hlm-switch inputId="otpEnabled" name="otpEnabled" aria-label="Enable one-time code" [(ngModel)]="draft.otp.enabled" />
               </div>
             </div>
             @if (draft.otp.enabled) {
@@ -328,12 +325,39 @@ interface ImageSlotInfo {
 
           <section hlmCard>
             <div hlmCardHeader>
+              <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideSparkles" /> Security &amp; display</h2>
+              <p hlmCardDescription>Anti-fraud effects and restrictions. Changes are applied to issued passes when you save.</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-4">
+              @for (o of securityToggles; track o.key) {
+                <label class="flex items-center justify-between gap-3 text-sm" [for]="'sec-' + o.key">
+                  <span>
+                    <span class="font-medium">{{ o.label }}</span>
+                    <span class="text-muted-foreground block text-xs">{{ o.hint }}</span>
+                  </span>
+                  <hlm-switch [inputId]="'sec-' + o.key" [name]="'sec-' + o.key" [(ngModel)]="draft.security[o.key]" />
+                </label>
+              }
+              <div class="flex flex-col gap-2">
+                <label hlmLabel for="deviceSharing">Who can save the pass (Google)</label>
+                <select hlmInput id="deviceSharing" name="deviceSharing" [(ngModel)]="draft.security.deviceSharing">
+                  <option [ngValue]="undefined">Google default</option>
+                  <option value="ONE_USER_ALL_DEVICES">One person, all their devices</option>
+                  <option value="ONE_USER_ONE_DEVICE">One person, one device</option>
+                  <option value="MULTIPLE_HOLDERS">Anyone with the link</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          <section hlmCard>
+            <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideNfc" /> NFC</h2>
               <p hlmCardDescription>
                 Tap-to-identify at NFC terminals: Apple Value Added Services and Google Smart Tap.
               </p>
               <div hlmCardAction>
-                <hlm-switch id="nfcEnabled" name="nfcEnabled" aria-label="Enable NFC" [(ngModel)]="draft.nfc.enabled" />
+                <hlm-switch inputId="nfcEnabled" name="nfcEnabled" aria-label="Enable NFC" [(ngModel)]="draft.nfc.enabled" />
               </div>
             </div>
             @if (draft.nfc.enabled) {
@@ -367,7 +391,7 @@ interface ImageSlotInfo {
                     <span class="font-medium">Require authentication (Apple)</span>
                     <span class="text-muted-foreground block text-xs">Face ID, Touch ID or passcode before sending the payload.</span>
                   </span>
-                  <hlm-switch id="nfcAuth" name="nfcAuth" [(ngModel)]="draft.nfc.requiresAuthentication" />
+                  <hlm-switch inputId="nfcAuth" name="nfcAuth" [(ngModel)]="draft.nfc.requiresAuthentication" />
                 </label>
                 <p class="text-muted-foreground text-xs">
                   Google: enables Smart Tap on the class with your issuer as redemption issuer. Smart Tap must be enabled for your issuer
@@ -385,7 +409,7 @@ interface ImageSlotInfo {
                 full-screen background: the image is shown full width in the pass details.
               </p>
               <div hlmCardAction>
-                <hlm-switch id="poster" name="poster" aria-label="Use the poster style" [(ngModel)]="draft.background.poster" />
+                <hlm-switch inputId="poster" name="poster" aria-label="Use the poster style" [(ngModel)]="draft.background.poster" />
               </div>
             </div>
             <div hlmCardContent class="flex flex-col gap-2 text-sm">
@@ -723,6 +747,13 @@ export class TemplateEditor implements OnInit {
   ];
   protected readonly locating = signal(false);
   protected readonly brandFields = BRAND_FIELDS.filter((f) => f !== 'altText');
+  protected readonly securityToggles: { key: 'googleShimmer' | 'unlockToView' | 'screenshots' | 'noSharing' | 'noStripShine'; label: string; hint: string }[] = [
+    { key: 'googleShimmer', label: 'Security shimmer (Google)', hint: 'Animated foil glow on the pass details: a live pass is easy to tell from a screenshot.' },
+    { key: 'unlockToView', label: 'Require unlock to view (Google)', hint: 'The phone must be unlocked to open the pass.' },
+    { key: 'screenshots', label: 'Allow screenshots (Google)', hint: 'Turn off to block screenshots of the pass.' },
+    { key: 'noSharing', label: 'Prevent sharing (Apple)', hint: 'Hides the share option in Wallet (sharingProhibited).' },
+    { key: 'noStripShine', label: 'Remove strip shine (Apple)', hint: 'Turns off the glossy effect Wallet adds over the strip image.' },
+  ];
   protected readonly brandLabels = BRAND_FIELD_LABELS;
   /** Marca del draft (siempre presente en el editor). */
   protected get brand(): BrandSettings {
@@ -927,10 +958,10 @@ export class TemplateEditor implements OnInit {
     delete this.draft.images[slot];
   }
 
-  /** Configuración que define el código escaneable; si cambia, se actualizan los pases al guardar. */
+  /** Código escaneable y seguridad: si cambian, se actualizan los pases al guardar. */
   private savedCodeSignature = '';
   private codeSignature(t: TemplateInput) {
-    return JSON.stringify({ otp: t.otp, format: t.barcode.format, message: t.barcode.message, nfc: t.nfc });
+    return JSON.stringify({ otp: t.otp, format: t.barcode.format, message: t.barcode.message, nfc: t.nfc, security: t.security });
   }
 
   /** Plantilla a guardar: botón vacío = sin botón; App Store ids desde el texto. */

@@ -164,6 +164,7 @@ export interface OtpSettings {
 
 /** Valores del pase que se generan desde la marca (salvo que se personalicen). */
 export const BRAND_FIELDS = [
+  'name',
   'organizationName',
   'logoText',
   'description',
@@ -184,6 +185,24 @@ export interface BrandSettings {
   color: string;
   /** Valores personalizados a mano (no se regeneran). */
   overrides: BrandField[];
+}
+
+export type DeviceSharing = 'MULTIPLE_HOLDERS' | 'ONE_USER_ALL_DEVICES' | 'ONE_USER_ONE_DEVICE';
+
+/** Seguridad y efectos visuales. */
+export interface SecuritySettings {
+  /** Google: brillo animado de seguridad (securityAnimation FOIL_SHIMMER) en el detalle del pase. */
+  googleShimmer: boolean;
+  /** Google: hay que desbloquear el teléfono para ver el pase. */
+  unlockToView: boolean;
+  /** Google: permitir capturas de pantalla (passConstraints.screenshotEligibility). */
+  screenshots: boolean;
+  /** Google: quién y en cuántos dispositivos se puede guardar. Vacío = valor por defecto de Google. */
+  deviceSharing?: DeviceSharing;
+  /** Apple: impide compartir el pase (sharingProhibited). */
+  noSharing: boolean;
+  /** Apple: quita el brillo que Wallet aplica sobre el strip (suppressStripShine). */
+  noStripShine: boolean;
 }
 
 export interface Template {
@@ -208,6 +227,7 @@ export interface Template {
   background: BackgroundSettings;
   otp: OtpSettings;
   brand?: BrandSettings;
+  security: SecuritySettings;
   createdAt: string;
   updatedAt: string;
 }

@@ -87,7 +87,7 @@ import { PassPreview } from '../../shared/pass-preview';
                       Push when the balance changes (max 3 per pass every 24 h). Apple notifies fields that have a change message.
                     </span>
                   </span>
-                  <hlm-switch id="notify" name="notify" [(ngModel)]="notify" />
+                  <hlm-switch inputId="notify" name="notify" [(ngModel)]="notify" />
                 </label>
               }
                             <label class="flex items-center justify-between gap-3 text-sm" for="voided">
@@ -95,7 +95,7 @@ import { PassPreview } from '../../shared/pass-preview';
                   <span class="font-medium">Void pass</span>
                   <span class="text-muted-foreground block text-xs">Marks it as invalid in both wallets.</span>
                 </span>
-                <hlm-switch id="voided" name="voided" [(ngModel)]="voided" />
+                <hlm-switch inputId="voided" name="voided" [(ngModel)]="voided" />
               </label>
             </div>
             <div hlmCardFooter class="flex flex-wrap gap-2">

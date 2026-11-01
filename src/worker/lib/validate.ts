@@ -3,6 +3,8 @@ import {
   BRAND_FIELDS,
   type BrandField,
   type BrandSettings,
+  type DeviceSharing,
+  type SecuritySettings,
   type AppleMessagePlacement,
   type MessageTranslation,
   type NotificationInput,
@@ -75,6 +77,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const background = { poster: obj(b.background).poster === true };
   const otp = parseOtp(b.otp);
   const brand = b.brand === undefined ? undefined : parseBrand(b.brand);
+  const security = parseSecurity(b.security);
 
   const out = {
     name,
@@ -96,6 +99,7 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     background,
     otp,
     ...(brand ? { brand } : {}),
+    security,
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
   return out;
@@ -254,6 +258,23 @@ function optionalIso(v: unknown, name: string): string | undefined {
   if (!s) return undefined;
   if (Number.isNaN(Date.parse(s))) throw new ValidationError(`Invalid date: ${name}`);
   return new Date(s).toISOString();
+}
+
+const SHARING: DeviceSharing[] = ['MULTIPLE_HOLDERS', 'ONE_USER_ALL_DEVICES', 'ONE_USER_ONE_DEVICE'];
+
+function parseSecurity(v: unknown): SecuritySettings {
+  const s = obj(v);
+  const deviceSharing = s.deviceSharing ? (s.deviceSharing as DeviceSharing) : undefined;
+  if (deviceSharing && !SHARING.includes(deviceSharing)) throw new ValidationError('Invalid device sharing option');
+  return compact({
+    googleShimmer: s.googleShimmer === true,
+    unlockToView: s.unlockToView === true,
+    // Por defecto se permiten capturas.
+    screenshots: s.screenshots !== false,
+    deviceSharing,
+    noSharing: s.noSharing === true,
+    noStripShine: s.noStripShine === true,
+  });
 }
 
 function parseBrand(v: unknown): BrandSettings {

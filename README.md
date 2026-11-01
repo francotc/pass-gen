@@ -136,7 +136,7 @@ En *General* se cargan tres datos y el editor genera el resto (como con las imá
 
 | Dato | Genera |
 |---|---|
-| Nombre del negocio | Organización y texto del logo (Apple), emisor (Google) |
+| Nombre del negocio | Nombre interno de la plantilla (`Negocio · Programa`), organización y texto del logo (Apple), emisor (Google) |
 | Nombre del programa | Programa (Google) y descripción de accesibilidad (`Programa · Negocio`) |
 | Color de marca | Fondo; texto blanco o negro según el mejor contraste (WCAG) y etiquetas atenuadas con contraste ≥ 3:1 |
 
@@ -146,6 +146,19 @@ Además:
 - **Claves de campo:** se generan desde la etiqueta (`Próximo premio` → `proximo_premio`) mientras no se editen a mano.
 
 Cualquier valor generado se puede editar en *Generated values*; queda como personalizado y no se regenera hasta volver a *Auto*. La marca se guarda en `brand` de la plantilla; el Worker usa los valores ya generados.
+
+## Seguridad y visualización
+
+Sección *Security & display* del editor (se aplica a los pases emitidos al guardar):
+
+| Opción | Plataforma | Campo |
+|---|---|---|
+| Brillo de seguridad animado | Google | `securityAnimation: { animationType: FOIL_SHIMMER }` (class) |
+| Desbloquear para ver | Google | `viewUnlockRequirement: UNLOCK_REQUIRED_TO_VIEW` (class) |
+| Bloquear capturas | Google | `passConstraints.screenshotEligibility: INELIGIBLE` (object) |
+| Quién puede guardarlo | Google | `multipleDevicesAndHoldersAllowedStatus` (class) |
+| Impedir compartir | Apple | `sharingProhibited` |
+| Quitar brillo del strip | Apple | `suppressStripShine` |
 
 ## Imágenes
 

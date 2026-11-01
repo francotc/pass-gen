@@ -218,6 +218,13 @@ describe('OTP', () => {
     expect(await verify(barcode.message)).toMatchObject({ valid: false, reason: 'Pass is voided' });
   });
 
+  it('valida las opciones de seguridad', async () => {
+    const bad = await json('/api/templates', 'POST', { ...templateInput, security: { deviceSharing: 'EVERYONE' } });
+    expect(await bad.json()).toMatchObject({ error: 'Invalid device sharing option' });
+    const ok = (await (await json('/api/templates', 'POST', { ...templateInput, security: { googleShimmer: true } })).json()) as Template;
+    expect(ok.security).toEqual({ googleShimmer: true, unlockToView: false, screenshots: true, noSharing: false, noStripShine: false });
+  });
+
   it('valida el período del OTP', async () => {
     const bad3 = await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 5 } });
     expect(await bad3.json()).toMatchObject({ error: 'OTP period must be between 10 and 300 seconds' });

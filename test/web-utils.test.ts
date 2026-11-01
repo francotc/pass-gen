@@ -31,6 +31,7 @@ describe('marca', () => {
     t.barcode.message = '{{serial}}';
     applyBrand(t);
     expect(t).toMatchObject({
+      name: 'Café Central · Sellos',
       organizationName: 'Café Central',
       logoText: 'Café Central',
       description: 'Sellos · Café Central',

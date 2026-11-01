@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildPassJson } from '../src/worker/lib/apple/pkpass';
-import { buildObject } from '../src/worker/lib/google/wallet';
+import { buildClass, buildObject } from '../src/worker/lib/google/wallet';
 import { passOtp } from '../src/worker/lib/otp';
 import { rotateAppleOtp } from '../src/worker/lib/rotate';
 import { Store } from '../src/worker/lib/store';
@@ -63,5 +63,29 @@ describe('Google OTP', () => {
       const t = makeTemplate({ otp: { enabled: true, googlePeriodSeconds: 30 }, barcode: { format, message: 'x' } });
       expect((buildObject(t, pass, '338', {}, otp).rotatingBarcode as { type: string }).type).toBe(type);
     }
+  });
+});
+
+describe('seguridad y visualización', () => {
+  const security = { googleShimmer: true, unlockToView: true, screenshots: false, deviceSharing: 'ONE_USER_ONE_DEVICE' as const, noSharing: true, noStripShine: true };
+
+  it('Google: animación, desbloqueo y dispositivos en la class; capturas en el object', () => {
+    const t = makeTemplate({ security });
+    expect(buildClass(t, '338', {})).toMatchObject({
+      securityAnimation: { animationType: 'FOIL_SHIMMER' },
+      viewUnlockRequirement: 'UNLOCK_REQUIRED_TO_VIEW',
+      multipleDevicesAndHoldersAllowedStatus: 'ONE_USER_ONE_DEVICE',
+    });
+    expect(buildObject(t, pass, '338', {})).toMatchObject({ passConstraints: { screenshotEligibility: 'INELIGIBLE' } });
+    const plain = makeTemplate();
+    expect(buildClass(plain, '338', {})).not.toHaveProperty('securityAnimation');
+    expect(buildObject(plain, pass, '338', {})).not.toHaveProperty('passConstraints');
+  });
+
+  it('Apple: sharingProhibited y suppressStripShine', () => {
+    const json = buildPassJson(makeTemplate({ security }), pass, appleSettings(), 'https://x.dev');
+    expect(json).toMatchObject({ sharingProhibited: true, suppressStripShine: true });
+    const plain = buildPassJson(makeTemplate(), pass, appleSettings(), 'https://x.dev');
+    expect(plain).not.toHaveProperty('sharingProhibited');
   });
 });

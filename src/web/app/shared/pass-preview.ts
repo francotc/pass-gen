@@ -123,7 +123,7 @@ interface RenderedField {
           </div>
           @if (t().barcode.message) {
             <div class="flex flex-col items-center gap-1 px-4 pb-4">
-              <div class="rounded-xl bg-white p-3">
+              <div class="relative rounded-xl bg-white p-3" [class.shimmer]="shimmer()">
                 <ng-container *ngTemplateOutlet="code" />
               </div>
               @if (t().barcode.altText) {
@@ -178,6 +178,23 @@ interface RenderedField {
     </ng-template>
   `,
   imports: [NgTemplateOutlet, NgIcon],
+  styles: `
+    /* Aproximación del securityAnimation FOIL_SHIMMER de Google. */
+    .shimmer::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 14px;
+      padding: 3px;
+      background: conic-gradient(from var(--a, 0deg), #f0abfc, #93c5fd, #86efac, #fde68a, #f0abfc);
+      mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+      animation: shimmer-spin 3s linear infinite;
+      pointer-events: none;
+    }
+    @property --a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes shimmer-spin { to { --a: 360deg; } }
+    @media (prefers-reduced-motion: reduce) { .shimmer::after { animation: none; } }
+  `,
   providers: [provideIcons({ lucideNfc })],
 })
 export class PassPreview {
@@ -249,6 +266,9 @@ export class PassPreview {
   }
   protected links() {
     return this.t().actions?.links ?? [];
+  }
+  protected shimmer() {
+    return this.t().security?.googleShimmer ?? false;
   }
   protected poster() {
     return this.t().background?.poster ?? false;

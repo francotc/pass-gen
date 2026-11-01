@@ -133,6 +133,8 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
         : undefined,
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
+    sharingProhibited: t.security?.noSharing || undefined,
+    suppressStripShine: t.security?.noStripShine || undefined,
   };
   if (t.background?.poster) {
     json.posterGeneric = posterStyle(style as Record<string, unknown[] | undefined>);

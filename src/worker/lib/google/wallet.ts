@@ -69,7 +69,13 @@ export function buildClass(t: Template, issuerId: string, images: ImageUrls): Re
   const merchantLocations = points.length ? { merchantLocations: points.map((l) => ({ latitude: l.latitude, longitude: l.longitude })) } : {};
   // Google no tiene fondo a pantalla completa: la imagen va a lo ancho en el detalle del pase.
   const imageModules = images.background ? { imageModulesData: [{ id: 'background', mainImage: image(images.background, t.name) }] } : {};
-  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations, ...imageModules };
+  const sec = t.security;
+  const security = {
+    ...(sec?.googleShimmer ? { securityAnimation: { animationType: 'FOIL_SHIMMER' } } : {}),
+    ...(sec?.unlockToView ? { viewUnlockRequirement: 'UNLOCK_REQUIRED_TO_VIEW' } : {}),
+    ...(sec?.deviceSharing ? { multipleDevicesAndHoldersAllowedStatus: sec.deviceSharing } : {}),
+  };
+  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations, ...imageModules, ...security };
   if (t.kind === 'generic') return base;
   return JSON.parse(
     JSON.stringify({
@@ -110,6 +116,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
   };
 
   Object.assign(common, actionModules(t, vars, images));
+  if (t.security && !t.security.screenshots) Object.assign(common, { passConstraints: { screenshotEligibility: 'INELIGIBLE' } });
   if (otp) {
     // El teléfono genera el TOTP; sin barcode estático para que una captura no sirva.
     delete (common as Record<string, unknown>).barcode;
