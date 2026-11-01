@@ -197,7 +197,7 @@ describe('página del titular', () => {
   });
 });
 
-describe('OTP y fechas', () => {
+describe('OTP', () => {
   it('verifica códigos Apple/Google y rechaza anulados, vencidos y desconocidos', async () => {
     await setupApple();
     const tpl = (await (await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 30 } })).json()) as Template;
@@ -214,17 +214,11 @@ describe('OTP y fechas', () => {
     expect(await verify('basura')).toMatchObject({ valid: false, reason: 'Not an OTP barcode (expected SERIAL.CODE)' });
     expect(await verify('NOPE.12345678')).toMatchObject({ valid: false, reason: 'Unknown pass' });
 
-    await json(`/api/passes/${pass.serial}`, 'PUT', { expiresAt: '2020-01-01T00:00:00Z' });
-    expect(await verify(barcode.message)).toMatchObject({ valid: false, reason: 'Pass expired' });
-    await json(`/api/passes/${pass.serial}`, 'PUT', { expiresAt: '' });
-    expect(await verify(barcode.message)).toMatchObject({ valid: true });
+    await json(`/api/passes/${pass.serial}`, 'PUT', { voided: true });
+    expect(await verify(barcode.message)).toMatchObject({ valid: false, reason: 'Pass is voided' });
   });
 
-  it('valida fechas de plantilla y de pase', async () => {
-    const bad = await json('/api/templates', 'POST', { ...templateInput, schedule: { validFrom: '2026-12-01', expiresAt: '2026-11-01' } });
-    expect(await bad.json()).toMatchObject({ error: 'Expiration must be after the start date' });
-    const bad2 = await json('/api/templates', 'POST', { ...templateInput, schedule: { relevantDates: [{}] } });
-    expect(await bad2.json()).toMatchObject({ error: 'Relevant date 1: start is required' });
+  it('valida el período del OTP', async () => {
     const bad3 = await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 5 } });
     expect(await bad3.json()).toMatchObject({ error: 'OTP period must be between 10 and 300 seconds' });
   });

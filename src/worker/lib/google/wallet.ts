@@ -110,7 +110,6 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
   };
 
   Object.assign(common, actionModules(t, vars, images));
-  Object.assign(common, scheduleFields(t, p));
   if (otp) {
     // El teléfono genera el TOTP; sin barcode estático para que una captura no sirva.
     delete (common as Record<string, unknown>).barcode;
@@ -190,21 +189,6 @@ function actionModules(t: Template, vars: Record<string, string>, images: ImageU
           : {}),
       };
     });
-  }
-  return out;
-}
-
-/** Vigencia (validTimeInterval) y, en Generic, avisos de inicio y vencimiento. */
-function scheduleFields(t: Template, p: Pass): Record<string, unknown> {
-  const start = p.validFrom ?? t.schedule?.validFrom;
-  const end = p.expiresAt ?? t.schedule?.expiresAt;
-  const out: Record<string, unknown> = {};
-  if (start || end) out.validTimeInterval = { ...(start ? { start: { date: start } } : {}), ...(end ? { end: { date: end } } : {}) };
-  if (t.kind === 'generic' && t.schedule?.notify && (start || end)) {
-    out.notifications = {
-      ...(start ? { upcomingNotification: { enableNotification: true } } : {}),
-      ...(end ? { expiryNotification: { enableNotification: true } } : {}),
-    };
   }
   return out;
 }

@@ -131,10 +131,6 @@ export function buildPassJson(t: Template, p: Pass, s: AppleSettings, origin: st
             },
           ]
         : undefined,
-    expirationDate: p.expiresAt ?? t.schedule?.expiresAt,
-    relevantDates: t.schedule?.relevantDates.length
-      ? t.schedule.relevantDates.map((r) => (r.end ? { startDate: r.start, endDate: r.end } : { date: r.start }))
-      : undefined,
     [t.kind === 'loyalty' ? 'storeCard' : 'generic']: style,
     voided: p.voided || undefined,
   };

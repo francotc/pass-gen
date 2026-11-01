@@ -4,7 +4,6 @@ import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
-  lucideCalendarClock,
   lucideImage,
   lucideLocateFixed,
   lucideMousePointerClick,
@@ -41,7 +40,6 @@ import {
   type TemplateInput,
 } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
-import { fromLocalInput, toLocalInput } from '../../core/dates';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
 import { PassPreview } from '../../shared/pass-preview';
@@ -68,7 +66,7 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideCalendarClock, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -276,60 +274,6 @@ interface ImageSlotInfo {
                 <p class="text-muted-foreground text-xs">Replaces the barcode content above. Format and placement still apply.</p>
               </div>
             }
-          </section>
-
-          <section hlmCard>
-            <div hlmCardHeader>
-              <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideCalendarClock" /> Validity &amp; dates</h2>
-              <p hlmCardDescription>Defaults for every pass of this template; each pass can override start and expiration.</p>
-            </div>
-            <div hlmCardContent class="flex flex-col gap-4">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="validFrom">Valid from (Google)</label>
-                  <input hlmInput id="validFrom" name="validFrom" type="datetime-local" [(ngModel)]="sched.validFrom" />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="expiresAt">Expires (both)</label>
-                  <input hlmInput id="expiresAt" name="expiresAt" type="datetime-local" [(ngModel)]="sched.expiresAt" />
-                </div>
-              </div>
-              @if (draft.kind === 'generic') {
-                <label class="flex items-center justify-between gap-3 text-sm" for="schedNotify">
-                  <span>
-                    <span class="font-medium">Notify before start and expiration (Google)</span>
-                    <span class="text-muted-foreground block text-xs">Upcoming and expiry notifications, only for Generic passes.</span>
-                  </span>
-                  <hlm-switch id="schedNotify" name="schedNotify" [(ngModel)]="draft.schedule.notify" />
-                </label>
-              }
-
-              <hlm-separator />
-
-              <div class="flex flex-col gap-3">
-                <div>
-                  <span class="text-sm font-medium">Relevant dates (Apple)</span>
-                  <p class="text-muted-foreground text-xs">
-                    The pass shows on the lock screen during these intervals (iOS 18+). Apple asks loyalty and generic passes that use
-                    relevance to also have locations.
-                  </p>
-                </div>
-                @for (r of sched.relevant; track $index; let i = $index) {
-                  <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                    <input hlmInput type="datetime-local" aria-label="Relevant from" [name]="'rel-s-' + i" [(ngModel)]="r.start" />
-                    <input hlmInput type="datetime-local" aria-label="Relevant until (optional)" [name]="'rel-e-' + i" [(ngModel)]="r.end" />
-                    <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove date" (click)="sched.relevant.splice(i, 1)">
-                      <ng-icon name="lucideTrash2" />
-                    </button>
-                  </div>
-                }
-                <div>
-                  <button hlmBtn variant="outline" size="sm" type="button" [disabled]="sched.relevant.length >= 10" (click)="sched.relevant.push({ start: '', end: '' })">
-                    <ng-icon name="lucidePlus" /> Add date
-                  </button>
-                </div>
-              </div>
-            </div>
           </section>
 
           <section hlmCard>
@@ -709,12 +653,6 @@ export class TemplateEditor implements OnInit {
   protected readonly maxFeatured = MAX_FEATURED_ACTIONS;
   /** Botón de Google editable; se guarda solo si tiene datos. */
   protected button: PassButton = { label: '', url: '' };
-  /** Fechas en formato datetime-local; se pasan a ISO al guardar. */
-  protected sched: { validFrom: string; expiresAt: string; relevant: { start: string; end: string }[] } = {
-    validFrom: '',
-    expiresAt: '',
-    relevant: [],
-  };
   /** App Store ids como texto separado por comas. */
   protected appStoreIds = '';
   protected readonly featuredOptions: { value: FeaturedActionType; label: string }[] = [
@@ -766,12 +704,6 @@ export class TemplateEditor implements OnInit {
         this.draft = toInput(await this.api.template(id));
         this.button = { label: '', url: '', ...this.draft.actions.button };
         this.appStoreIds = this.draft.actions.appStoreIds.join(', ');
-        const sc = this.draft.schedule;
-        this.sched = {
-          validFrom: toLocalInput(sc.validFrom),
-          expiresAt: toLocalInput(sc.expiresAt),
-          relevant: sc.relevantDates.map((r) => ({ start: toLocalInput(r.start), end: toLocalInput(r.end) })),
-        };
       } catch (e) {
         toast.error(errorMessage(e));
         await this.router.navigate(['/templates']);
@@ -852,15 +784,7 @@ export class TemplateEditor implements OnInit {
       .split(/[\s,]+/)
       .filter(Boolean)
       .map(Number);
-    const schedule = {
-      ...this.draft.schedule,
-      validFrom: fromLocalInput(this.sched.validFrom),
-      expiresAt: fromLocalInput(this.sched.expiresAt),
-      relevantDates: this.sched.relevant
-        .filter((r) => r.start)
-        .map((r) => ({ start: fromLocalInput(r.start)!, end: fromLocalInput(r.end) })),
-    };
-    return { ...this.draft, actions: { ...this.draft.actions, button, appStoreIds }, schedule };
+    return { ...this.draft, actions: { ...this.draft.actions, button, appStoreIds } };
   }
 
   protected async uploadModuleImage(i: number, ev: Event) {

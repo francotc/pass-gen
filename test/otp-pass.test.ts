@@ -13,35 +13,7 @@ const pass: Pass = {
   serial: 'S1', templateId: 't1', authToken: 'a'.repeat(32), holderName: 'Ana', data: {},
   createdAt: '', updatedAt: '2026-01-01T00:00:00.000Z', voided: false, google: { synced: false },
 };
-const schedule = {
-  validFrom: '2026-11-01T00:00:00.000Z',
-  expiresAt: '2027-11-01T00:00:00.000Z',
-  relevantDates: [{ start: '2026-11-05T18:00:00.000Z', end: '2026-11-05T22:00:00.000Z' }, { start: '2026-12-24T09:00:00.000Z' }],
-  notify: true,
-};
-
 afterEach(() => vi.restoreAllMocks());
-
-describe('fechas', () => {
-  it('Apple: expirationDate y relevantDates; el pase pisa la plantilla', () => {
-    const json = buildPassJson(makeTemplate({ schedule }), pass, appleSettings(), 'https://x.dev');
-    expect(json.expirationDate).toBe('2027-11-01T00:00:00.000Z');
-    expect(json.relevantDates).toEqual([
-      { startDate: '2026-11-05T18:00:00.000Z', endDate: '2026-11-05T22:00:00.000Z' },
-      { date: '2026-12-24T09:00:00.000Z' },
-    ]);
-    const own = buildPassJson(makeTemplate({ schedule }), { ...pass, expiresAt: '2026-12-31T00:00:00.000Z' }, appleSettings(), 'https://x.dev');
-    expect(own.expirationDate).toBe('2026-12-31T00:00:00.000Z');
-  });
-
-  it('Google: validTimeInterval y avisos solo en Generic', () => {
-    const loyalty = buildObject(makeTemplate({ schedule }), pass, '338', {});
-    expect(loyalty.validTimeInterval).toEqual({ start: { date: '2026-11-01T00:00:00.000Z' }, end: { date: '2027-11-01T00:00:00.000Z' } });
-    expect(loyalty).not.toHaveProperty('notifications');
-    const generic = buildObject(makeTemplate({ schedule, kind: 'generic' }), pass, '338', {});
-    expect(generic.notifications).toEqual({ upcomingNotification: { enableNotification: true }, expiryNotification: { enableNotification: true } });
-  });
-});
 
 describe('OTP en los pases', () => {
   it('Apple: SERIAL.CÓDIGO con el código del día; Google: rotatingBarcode TOTP sin barcode estático', async () => {

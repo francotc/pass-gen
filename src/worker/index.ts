@@ -54,7 +54,6 @@ app.get('/public/p/:serial/:token', async (c) => {
   // El SVG oficial de Google es opcional (ver README); sin él se muestra un botón de texto.
   const badge = await c.env.ASSETS.fetch(new Request(`${origin}/public/badges/add-to-google-wallet.svg`));
   const googleBadge = badge.ok && (badge.headers.get('content-type') ?? '').includes('svg');
-  const expiresAt = pass.expiresAt ?? tpl.schedule?.expiresAt;
   const logo = tpl.images.logo ?? tpl.images.icon;
 
   const html = renderHolderPage({
@@ -66,11 +65,7 @@ app.get('/public/p/:serial/:token', async (c) => {
     googleBadge,
     logoUrl: logo ? `/public/images/${logo}` : undefined,
     device: detectDevice(c.req.header('user-agent') ?? ''),
-    unavailable: pass.voided
-      ? 'This pass is no longer valid.'
-      : expiresAt && Date.parse(expiresAt) < Date.now()
-        ? 'This pass has expired.'
-        : undefined,
+    unavailable: pass.voided ? 'This pass is no longer valid.' : undefined,
   });
   return c.html(html, 200, {
     'cache-control': 'no-store',

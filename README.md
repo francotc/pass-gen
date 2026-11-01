@@ -130,30 +130,19 @@ Además, al editar un pase *Loyalty* se puede marcar **Notify Google holders**: 
 
 Limitaciones: Apple no notifica si el texto es idéntico al anterior; Google rechaza con `QuotaExceededException` más de 3 notificaciones por pase en 24 h (el error se ve en el historial). Los envíos a plantillas grandes comparten los límites de subrequests del Worker.
 
-## Vigencia y fechas
-
-Sección *Validity & dates* del editor (valores por defecto) y fechas propias en el detalle de cada pase (pisan las de la plantilla):
-
-| | Apple Wallet | Google Wallet |
-|---|---|---|
-| Vencimiento | `expirationDate` | Fin de `validTimeInterval` (el pase pasa a *expired*) |
-| Inicio | — | Inicio de `validTimeInterval` |
-| Fechas relevantes | `relevantDates` (`startDate`/`endDate` o `date`): pantalla bloqueada en esos intervalos | — |
-| Avisos | — | Solo Generic: `notifications.upcomingNotification` / `expiryNotification` |
-
 ## Código OTP
 
 Sección *One-time code (OTP)*: el código de barras pasa a `SERIAL.CÓDIGO` (8 dígitos, TOTP SHA‑1). El secreto de cada pase se deriva de `ENCRYPTION_KEY` (no se guarda; cambiar la clave invalida todos los códigos).
 
 - **Google:** `rotatingBarcode` con `totpDetails`; el teléfono rota el código cada *N* segundos (10–300, por defecto 30) y no hay código estático.
 - **Apple:** Wallet no rota códigos, así que el código cambia cada 24 h a medianoche UTC y se acepta el del día y el del anterior (validez de 48 h). El cron `1 0 * * *` (`triggers` en `wrangler.jsonc`) marca esos pases como actualizados y hace push; los iPhone descargan el pase con el código nuevo. Necesita el push de Apple configurado.
-- **Verificación:** *Passes → Verify code* o `POST /api/otp/verify` con `{ "value": "SERIAL.CÓDIGO" }`. Responde `{ valid, serial, holderName, platform, reason }` y rechaza pases anulados, vencidos o todavía no vigentes.
+- **Verificación:** *Passes → Verify code* o `POST /api/otp/verify` con `{ "value": "SERIAL.CÓDIGO" }`. Responde `{ valid, serial, holderName, platform, reason }` y rechaza pases anulados.
 
 Probar el cron en local: `npx wrangler dev --test-scheduled` y `curl "http://localhost:8787/cdn-cgi/handler/scheduled?cron=1+0+*+*+*"`.
 
 ## Página del titular
 
-`/public/p/{serial}/{token}` (botón *Holder page* en el detalle del pase): un solo link para ambas wallets. Muestra el botón de Apple en iPhone, el de Google en Android y los dos más un QR en computadora; avisa si el pase está anulado o vencido. Está bajo `/public/*`, así que usa el mismo bypass de Access.
+`/public/p/{serial}/{token}` (botón *Holder page* en el detalle del pase): un solo link para ambas wallets. Muestra el botón de Apple en iPhone, el de Google en Android y los dos más un QR en computadora; avisa si el pase está anulado. Está bajo `/public/*`, así que usa el mismo bypass de Access.
 
 El badge oficial de Apple está en `src/web/public/public/badges/add-to-apple-wallet.svg`. Para Google, descargá el SVG oficial de las [brand guidelines de Google Wallet](https://developers.google.com/wallet/generic/resources/brand-guidelines) y guardalo como `src/web/public/public/badges/add-to-google-wallet.svg`; mientras no exista se muestra un botón de texto.
 

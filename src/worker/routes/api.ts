@@ -8,7 +8,7 @@ import { saveLink } from '../lib/google/wallet';
 import { Store } from '../lib/store';
 import { sendNotification } from '../lib/notifications';
 import { publishTemplate, syncPass, type Ctx } from '../lib/sync';
-import { parseData, parseNotificationInput, parsePassDates, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
+import { parseData, parseNotificationInput, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
 import type { AppleSettings, GoogleSettings, ImageSlot, OtpVerifyResult, Pass, SettingsStatus, Template } from '../types';
 import { accessGuard } from '../middleware/access';
 
@@ -223,13 +223,7 @@ api.put('/passes/:serial', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
   if (!pass) return c.json({ error: 'Not found' }, 404);
-  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean; notify?: boolean; validFrom?: string; expiresAt?: string }>();
-  // Fechas: presentes en el body = se actualizan (vacío borra y vuelve a usar las de la plantilla).
-  if ('validFrom' in body || 'expiresAt' in body) {
-    const dates = parsePassDates({ validFrom: body.validFrom ?? pass.validFrom, expiresAt: body.expiresAt ?? pass.expiresAt });
-    pass.validFrom = dates.validFrom;
-    pass.expiresAt = dates.expiresAt;
-  }
+  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean; notify?: boolean }>();
   if (body.holderName !== undefined) {
     const name = text(body.holderName);
     if (!name) throw new ValidationError('Holder name is required');
@@ -290,10 +284,6 @@ api.post('/otp/verify', async (c) => {
   const tpl = await s.getTemplate(pass.templateId);
   if (!tpl?.otp?.enabled) return res({ valid: false, ...base, reason: 'OTP is not enabled for this pass' });
   if (pass.voided) return res({ valid: false, ...base, reason: 'Pass is voided' });
-  const expiresAt = pass.expiresAt ?? tpl.schedule?.expiresAt;
-  if (expiresAt && Date.parse(expiresAt) < Date.now()) return res({ valid: false, ...base, reason: 'Pass expired' });
-  const validFrom = pass.validFrom ?? tpl.schedule?.validFrom;
-  if (validFrom && Date.parse(validFrom) > Date.now()) return res({ valid: false, ...base, reason: 'Pass is not valid yet' });
   const match = await verifyOtp(await otpSecret(c.env.ENCRYPTION_KEY, pass.serial), parsed.code, tpl.otp.googlePeriodSeconds);
   return match.valid ? res({ valid: true, ...base, platform: match.platform }) : res({ valid: false, ...base, reason: 'Invalid or expired code' });
 });

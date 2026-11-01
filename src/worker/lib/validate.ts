@@ -9,9 +9,7 @@ import {
   MAX_LINKS,
   MAX_MODULES,
   MAX_LOCATIONS,
-  MAX_RELEVANT_DATES,
   type OtpSettings,
-  type ScheduleSettings,
   type ActionSettings,
   type FeaturedActionType,
   NFC_MAX_BYTES,
@@ -72,7 +70,6 @@ export function parseTemplateInput(body: unknown): TemplateInput {
   const locations = parseLocations(b.locations);
   const actions = parseActions(b.actions);
   const background = { poster: obj(b.background).poster === true };
-  const schedule = parseSchedule(b.schedule);
   const otp = parseOtp(b.otp);
 
   const out = {
@@ -93,7 +90,6 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     locations,
     actions,
     background,
-    schedule,
     otp,
   } as TemplateInput;
   for (const sec of FIELD_SECTIONS) out[sec] = fields(b[sec], sec);
@@ -255,38 +251,11 @@ function optionalIso(v: unknown, name: string): string | undefined {
   return new Date(s).toISOString();
 }
 
-function parseSchedule(v: unknown): ScheduleSettings {
-  const s = obj(v);
-  const validFrom = optionalIso(s.validFrom, 'valid from');
-  const expiresAt = optionalIso(s.expiresAt, 'expiration');
-  if (validFrom && expiresAt && expiresAt <= validFrom) throw new ValidationError('Expiration must be after the start date');
-  if (s.relevantDates !== undefined && !Array.isArray(s.relevantDates)) throw new ValidationError('relevantDates must be a list');
-  const list = (s.relevantDates as unknown[] | undefined) ?? [];
-  if (list.length > MAX_RELEVANT_DATES) throw new ValidationError(`Up to ${MAX_RELEVANT_DATES} relevant dates are allowed`);
-  const relevantDates = list.map((raw, i) => {
-    const r = obj(raw);
-    const start = optionalIso(r.start, `relevant date ${i + 1}`);
-    if (!start) throw new ValidationError(`Relevant date ${i + 1}: start is required`);
-    const end = optionalIso(r.end, `relevant date ${i + 1} end`);
-    if (end && end <= start) throw new ValidationError(`Relevant date ${i + 1}: end must be after start`);
-    return compact({ start, end });
-  });
-  return compact({ validFrom, expiresAt, relevantDates, notify: s.notify === true });
-}
-
 function parseOtp(v: unknown): OtpSettings {
   const o = obj(v);
   const period = o.googlePeriodSeconds === undefined ? 30 : Number(o.googlePeriodSeconds);
   if (!Number.isInteger(period) || period < 10 || period > 300) throw new ValidationError('OTP period must be between 10 and 300 seconds');
   return { enabled: o.enabled === true, googlePeriodSeconds: period };
-}
-
-/** Fechas propias del pase (vacío = usa las de la plantilla). */
-export function parsePassDates(b: Record<string, unknown>): { validFrom?: string; expiresAt?: string } {
-  const validFrom = optionalIso(b.validFrom, 'valid from');
-  const expiresAt = optionalIso(b.expiresAt, 'expiration');
-  if (validFrom && expiresAt && expiresAt <= validFrom) throw new ValidationError('Expiration must be after the start date');
-  return { validFrom, expiresAt };
 }
 
 function parseNfc(v: unknown): NfcSettings {
@@ -318,7 +287,7 @@ export function parsePassInput(body: unknown): PassInput {
   if (!templateId) throw new ValidationError('Template is required');
   const holderName = str(b.holderName, 200).trim();
   if (!holderName) throw new ValidationError('Holder name is required');
-  return compact({ templateId, holderName, data: parseData(b.data), ...parsePassDates(b) });
+  return { templateId, holderName, data: parseData(b.data) };
 }
 
 export function parseData(v: unknown): Record<string, string> {

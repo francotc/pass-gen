@@ -21,7 +21,6 @@ import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import type { Pass, Template } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
-import { fromLocalInput, toLocalInput } from '../../core/dates';
 import { syncMessage } from '../../core/sync-message';
 import { placeholderKeys } from '../../core/template-utils';
 import { PassPreview } from '../../shared/pass-preview';
@@ -90,17 +89,6 @@ import { PassPreview } from '../../shared/pass-preview';
                   <hlm-switch id="notify" name="notify" [(ngModel)]="notify" />
                 </label>
               }
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="validFrom">Valid from</label>
-                  <input hlmInput id="validFrom" name="validFrom" type="datetime-local" [(ngModel)]="validFrom" />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label hlmLabel for="expiresAt">Expires</label>
-                  <input hlmInput id="expiresAt" name="expiresAt" type="datetime-local" [(ngModel)]="expiresAt" />
-                </div>
-                <p class="text-muted-foreground text-xs sm:col-span-2">Empty uses the template dates.</p>
-              </div>
                             <label class="flex items-center justify-between gap-3 text-sm" for="voided">
                 <span>
                   <span class="font-medium">Void pass</span>
@@ -190,8 +178,6 @@ export class PassDetail implements OnInit {
   protected holderName = '';
   protected data: Record<string, string> = {};
   protected voided = false;
-  protected validFrom = '';
-  protected expiresAt = '';
   protected notify = false;
 
   protected keys() {
@@ -217,8 +203,6 @@ export class PassDetail implements OnInit {
     this.holderName = p.holderName;
     this.data = { ...p.data };
     this.voided = p.voided;
-    this.validFrom = toLocalInput(p.validFrom);
-    this.expiresAt = toLocalInput(p.expiresAt);
   }
 
   protected async save() {
@@ -229,9 +213,6 @@ export class PassDetail implements OnInit {
         data: this.data,
         voided: this.voided,
         notify: this.notify,
-        // '' borra la fecha propia y vuelve a usar la de la plantilla.
-        validFrom: fromLocalInput(this.validFrom) ?? '',
-        expiresAt: fromLocalInput(this.expiresAt) ?? '',
       });
       this.apply(res.pass);
       const msg = syncMessage(res.sync);
