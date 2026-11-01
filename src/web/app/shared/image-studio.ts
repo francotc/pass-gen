@@ -5,7 +5,7 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import type { ImageSlot, PassKind } from '../../../worker/types';
 import { Api, errorMessage } from '../core/api.service';
-import { dominantColor } from '../core/color';
+import { dominantColor } from '../core/dominant-color';
 import { fitToBox, ImageCropper, loadImage } from './image-cropper';
 
 /** Recorte desde la imagen de portada: slot, tamaño de salida y relación de aspecto. */

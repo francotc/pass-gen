@@ -48,7 +48,8 @@ import {
 } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
 import { applyBrand, BRAND_FIELD_LABELS, brandFromTemplate, COLOR_FIELDS, getField, setField, slugKey } from '../../core/brand';
-import { contrast, dominantColor } from '../../core/color';
+import { contrast } from '../../core/color';
+import { dominantColor } from '../../core/dominant-color';
 import { syncMessage } from '../../core/sync-message';
 import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
 import { ImageStudio } from '../../shared/image-studio';
