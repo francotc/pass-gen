@@ -87,7 +87,7 @@ import { PassPreview } from '../../shared/pass-preview';
                 <label class="flex items-center justify-between gap-3 text-sm" for="notify">
                   <span>
                     <span class="font-medium">Notify Google holders</span>
-                    <span class="text-muted-foreground block text-xs">
+                    <span class="text-muted-foreground block text-[13px] leading-snug">
                       Push when the balance changes (max 3 per pass every 24 h). Apple notifies fields that have a change message.
                     </span>
                   </span>
@@ -97,7 +97,7 @@ import { PassPreview } from '../../shared/pass-preview';
                             <label class="flex items-center justify-between gap-3 text-sm" for="voided">
                 <span>
                   <span class="font-medium">Void pass</span>
-                  <span class="text-muted-foreground block text-xs">Marks it as invalid in both wallets.</span>
+                  <span class="text-muted-foreground block text-[13px] leading-snug">Marks it as invalid in both wallets.</span>
                 </span>
                 <hlm-switch inputId="voided" name="voided" [(ngModel)]="voided" />
               </label>
@@ -116,13 +116,13 @@ import { PassPreview } from '../../shared/pass-preview';
             </div>
             <div hlmCardContent class="flex flex-col gap-4 text-sm">
               <dl class="grid grid-cols-3 gap-3">
-                <div><dt class="text-muted-foreground text-xs">Apple devices</dt><dd class="text-xl font-semibold tabular-nums">{{ installs().appleDevices }}</dd></div>
+                <div><dt class="text-muted-foreground text-[13px] leading-snug">Apple devices</dt><dd class="text-xl font-semibold tabular-nums">{{ installs().appleDevices }}</dd></div>
                 <div>
-                  <dt class="text-muted-foreground text-xs">Google Wallet</dt>
+                  <dt class="text-muted-foreground text-[13px] leading-snug">Google Wallet</dt>
                   <dd class="text-xl font-semibold">{{ installs().googleSaved ? 'Saved' : 'Not saved' }}</dd>
                 </div>
                 <div>
-                  <dt class="text-muted-foreground text-xs">Google saves / removals</dt>
+                  <dt class="text-muted-foreground text-[13px] leading-snug">Google saves / removals</dt>
                   <dd class="text-xl font-semibold tabular-nums">{{ installs().googleSaves }} / {{ installs().googleDeletes }}</dd>
                 </div>
               </dl>
@@ -161,7 +161,7 @@ import { PassPreview } from '../../shared/pass-preview';
             <div hlmCardContent class="flex flex-col gap-5">
               <div class="flex flex-col gap-2">
                 <span class="text-sm font-medium">Holder page</span>
-                <p class="text-muted-foreground text-xs">One link for both wallets: shows the right button on each phone and a QR code on desktop.</p>
+                <p class="text-muted-foreground text-[13px] leading-snug">One link for both wallets: shows the right button on each phone and a QR code on desktop.</p>
                 <div class="flex flex-wrap gap-2">
                   <a hlmBtn variant="outline" [href]="api.holderPageUrl(pass()!)" target="_blank" rel="noopener"><ng-icon name="lucideExternalLink" /> Open</a>
                   <button hlmBtn type="button" (click)="copy(api.holderPageUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy holder link</button>

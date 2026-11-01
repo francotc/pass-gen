@@ -10,7 +10,7 @@ import { Component, computed, effect, ElementRef, input, signal, viewChild } fro
     <div class="flex flex-col gap-2">
       <div class="flex items-baseline justify-between gap-2">
         <span class="text-sm font-medium">{{ label() }}</span>
-        <span class="text-muted-foreground text-xs">{{ hint() }}</span>
+        <span class="text-muted-foreground text-[13px] leading-snug">{{ hint() }}</span>
       </div>
       <div
         #frame

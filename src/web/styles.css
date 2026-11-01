@@ -100,3 +100,20 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Botones deshabilitados: en vez de bajar la opacidad (contraste pobre), un estado neutro legible. */
+[data-slot='button']:disabled,
+[data-slot='button'][data-disabled],
+[hlmBtn]:disabled {
+  opacity: 1;
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Placeholders claramente distintos de un valor cargado. */
+input::placeholder,
+textarea::placeholder {
+  color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+}

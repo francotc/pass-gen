@@ -8,6 +8,13 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      // Aplica el tema antes de pintar para evitar el flash (ver core/theme.ts).
+      try {
+        var m = localStorage.getItem('passgen.theme');
+        if (m === 'dark' || (m !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <app-root></app-root>

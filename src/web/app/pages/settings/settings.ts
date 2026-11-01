@@ -113,7 +113,7 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
               <input hlmInput id="kid" name="apnsKeyId" placeholder="ABC123DEFG" [(ngModel)]="apnsKeyId" />
             </div>
           </div>
-          <p class="text-muted-foreground text-xs">
+          <p class="text-muted-foreground text-[13px] leading-snug">
             Empty fields keep the saved value. Push can also use the certificate over mTLS (see README).
           </p>
           <div>

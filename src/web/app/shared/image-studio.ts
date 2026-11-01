@@ -31,7 +31,7 @@ interface CoverTarget {
       <div class="flex flex-col gap-3">
         <div>
           <span class="text-sm font-medium">Logo</span>
-          <p class="text-muted-foreground text-xs">
+          <p class="text-muted-foreground text-[13px] leading-snug">
             Square crop for the Google logo and the Apple icon; Apple's top-left logo keeps the full shape. A PNG with transparency
             works best, and its main color can become the brand color.
           </p>
@@ -53,7 +53,7 @@ interface CoverTarget {
       <div class="flex flex-col gap-3">
         <div>
           <span class="text-sm font-medium">Cover</span>
-          <p class="text-muted-foreground text-xs">One photo, cropped for each place it appears. Drag to move, scroll to zoom.</p>
+          <p class="text-muted-foreground text-[13px] leading-snug">One photo, cropped for each place it appears. Drag to move, scroll to zoom.</p>
         </div>
         @if (cover(); as img) {
           @for (t of coverTargets(); track t.slot) {

@@ -30,7 +30,7 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
     <form class="border-border mb-6 flex max-w-4xl flex-col gap-3 rounded-lg border p-4" (ngSubmit)="verify()">
       <div class="flex flex-col gap-1">
         <label hlmLabel for="otpValue" class="flex items-center gap-2"><ng-icon name="lucideScanLine" /> Verify code</label>
-        <p class="text-muted-foreground text-xs">Paste or scan an OTP barcode (SERIAL.CODE) to check that it is valid right now.</p>
+        <p class="text-muted-foreground text-[13px] leading-snug">Paste or scan an OTP barcode (SERIAL.CODE) to check that it is valid right now.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <input
@@ -89,9 +89,9 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
         <dl class="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Installation stats">
           @for (s of stats(); track s.label) {
             <div class="border-border flex flex-col gap-1 rounded-lg border p-3">
-              <dt class="text-muted-foreground text-xs">{{ s.label }}</dt>
+              <dt class="text-muted-foreground text-[13px] leading-snug">{{ s.label }}</dt>
               <dd class="text-2xl font-semibold tabular-nums">{{ s.value }}</dd>
-              <dd class="text-muted-foreground text-xs">{{ s.hint }}</dd>
+              <dd class="text-muted-foreground text-[13px] leading-snug">{{ s.hint }}</dd>
             </div>
           }
         </dl>

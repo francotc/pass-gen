@@ -38,7 +38,7 @@ import { PassPreview } from '../../shared/pass-preview';
               }
             </select>
             @if (!templates().length) {
-              <p class="text-muted-foreground text-xs">No templates yet. <a routerLink="/templates/new" class="underline">Create one</a>.</p>
+              <p class="text-muted-foreground text-[13px] leading-snug">No templates yet. <a routerLink="/templates/new" class="underline">Create one</a>.</p>
             }
           </div>
           <div class="flex flex-col gap-2">
@@ -49,7 +49,7 @@ import { PassPreview } from '../../shared/pass-preview';
             <label hlmLabel for="email">Holder email (optional)</label>
             <input hlmInput id="email" name="email" type="email" autocomplete="off" [(ngModel)]="email" />
             @if (template()?.security?.restrictToEmail) {
-              <p class="text-muted-foreground text-xs">This template only lets this email save the pass in Google Wallet.</p>
+              <p class="text-muted-foreground text-[13px] leading-snug">This template only lets this email save the pass in Google Wallet.</p>
             }
           </div>
           @for (k of keys(); track k) {

@@ -140,7 +140,7 @@ interface ImageSlotInfo {
                   <button hlmBtn variant="outline" size="sm" type="button" [disabled]="!logoImageId()" (click)="useLogoColor()">
                     <ng-icon name="lucidePipette" /> From logo
                   </button>
-                  <span class="text-muted-foreground text-xs">Text and label colors are picked for contrast.</span>
+                  <span class="text-muted-foreground text-[13px] leading-snug">Text and label colors are picked for contrast.</span>
                 </div>
               </div>
 
@@ -191,7 +191,7 @@ interface ImageSlotInfo {
               <label class="flex items-center justify-between gap-3 text-sm" for="wideLogo">
                 <span>
                   <span class="font-medium">Use the wide logo on Google</span>
-                  <span class="text-muted-foreground block text-xs">
+                  <span class="text-muted-foreground block text-[13px] leading-snug">
                     Replaces the round logo and issuer name at the top of the Google card. Best for wordmark logos.
                   </span>
                 </span>
@@ -213,7 +213,7 @@ interface ImageSlotInfo {
                         }
                       </span>
                       <div class="flex min-w-0 flex-1 flex-col gap-1">
-                        <span class="text-muted-foreground text-xs">{{ img.hint }}</span>
+                        <span class="text-muted-foreground text-[13px] leading-snug">{{ img.hint }}</span>
                         <div class="flex flex-wrap items-center gap-1">
                           <input #fileInput type="file" accept="image/png" class="hidden" (change)="upload(img.slot, $event)" />
                           <button hlmBtn variant="outline" size="sm" type="button" (click)="fileInput.click()">
@@ -252,7 +252,7 @@ interface ImageSlotInfo {
                 </hlm-tabs-list>
                 @for (s of sections; track s) {
                   <div [hlmTabsContent]="s" class="flex flex-col gap-3 pt-3">
-                    <p class="text-muted-foreground text-xs">{{ sectionLabels[s].hint }}</p>
+                    <p class="text-muted-foreground text-[13px] leading-snug">{{ sectionLabels[s].hint }}</p>
                     @for (f of draft[s]; track $index; let i = $index) {
                       <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1.5fr_8rem_auto]">
                         <input hlmInput aria-label="Label" placeholder="Label" [name]="s + '-label-' + i" [ngModel]="f.label" (ngModelChange)="onLabel(f, $event)" />
@@ -329,7 +329,7 @@ interface ImageSlotInfo {
               <div hlmCardContent class="flex max-w-xs flex-col gap-2">
                 <label hlmLabel for="otpPeriod">Google rotation period (seconds)</label>
                 <input hlmInput id="otpPeriod" name="otpPeriod" type="number" min="10" max="300" step="1" [(ngModel)]="draft.otp.googlePeriodSeconds" />
-                <p class="text-muted-foreground text-xs">Replaces the barcode content above. Format and placement still apply.</p>
+                <p class="text-muted-foreground text-[13px] leading-snug">Replaces the barcode content above. Format and placement still apply.</p>
               </div>
             }
           </section>
@@ -344,7 +344,7 @@ interface ImageSlotInfo {
                 <label class="flex items-center justify-between gap-3 text-sm" [for]="'sec-' + o.key">
                   <span>
                     <span class="font-medium">{{ o.label }}</span>
-                    <span class="text-muted-foreground block text-xs">{{ o.hint }}</span>
+                    <span class="text-muted-foreground block text-[13px] leading-snug">{{ o.hint }}</span>
                   </span>
                   <hlm-switch [inputId]="'sec-' + o.key" [name]="'sec-' + o.key" [(ngModel)]="draft.security[o.key]" />
                 </label>
@@ -378,7 +378,7 @@ interface ImageSlotInfo {
                       <option [value]="l.code">{{ l.name }} ({{ l.code }})</option>
                     }
                   </select>
-                  <p class="text-muted-foreground text-xs">The language the texts above are written in.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">The language the texts above are written in.</p>
                 </div>
                 <div class="flex flex-col gap-2">
                   <label hlmLabel for="addLang">Add a language</label>
@@ -416,7 +416,7 @@ interface ImageSlotInfo {
                         (click)="editingLang.set(l)"
                       >
                         {{ languageName(l) }}
-                        <span class="text-muted-foreground text-xs">{{ translatedCount(l) }}/{{ texts().length }}</span>
+                        <span class="text-muted-foreground text-[13px] leading-snug">{{ translatedCount(l) }}/{{ texts().length }}</span>
                       </button>
                       <button type="button" class="text-muted-foreground hover:text-foreground px-1.5" [attr.aria-label]="'Remove ' + languageName(l)" (click)="removeLanguage(l)">
                         <ng-icon name="lucideX" />
@@ -430,7 +430,7 @@ interface ImageSlotInfo {
                       <div class="grid gap-1 sm:grid-cols-2 sm:items-center sm:gap-3">
                         <label class="flex min-w-0 flex-col text-sm" [for]="'tr-' + i">
                           <span class="truncate" [title]="x.source">{{ x.source }}</span>
-                          <span class="text-muted-foreground text-xs">{{ x.context }}</span>
+                          <span class="text-muted-foreground text-[13px] leading-snug">{{ x.context }}</span>
                         </label>
                         <input
                           hlmInput
@@ -468,7 +468,7 @@ interface ImageSlotInfo {
                 <div class="flex flex-col gap-2">
                   <label hlmLabel for="nfcMessage">Payload</label>
                   <input hlmInput id="nfcMessage" name="nfcMessage" class="font-mono" placeholder="{{ '{{serial}}' }}" [(ngModel)]="draft.nfc.message" />
-                  <p class="text-muted-foreground text-xs">
+                  <p class="text-muted-foreground text-[13px] leading-snug">
                     Sent to the terminal on tap. Supports placeholders; Apple truncates it to {{ nfcMaxBytes }} bytes
                     ({{ nfcBytes() }} without placeholders).
                   </p>
@@ -484,7 +484,7 @@ interface ImageSlotInfo {
                     placeholder="MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgAC…"
                     [(ngModel)]="draft.nfc.encryptionPublicKey"
                   ></textarea>
-                  <p class="text-muted-foreground text-xs">
+                  <p class="text-muted-foreground text-[13px] leading-snug">
                     Base64 X.509 SubjectPublicKeyInfo with the ECDH P-256 key from your terminal provider. Without it, Apple passes are
                     issued without NFC. Requires a Pass Type ID with the NFC entitlement.
                   </p>
@@ -492,11 +492,11 @@ interface ImageSlotInfo {
                 <label class="flex items-center justify-between gap-3 text-sm" for="nfcAuth">
                   <span>
                     <span class="font-medium">Require authentication (Apple)</span>
-                    <span class="text-muted-foreground block text-xs">Face ID, Touch ID or passcode before sending the payload.</span>
+                    <span class="text-muted-foreground block text-[13px] leading-snug">Face ID, Touch ID or passcode before sending the payload.</span>
                   </span>
                   <hlm-switch inputId="nfcAuth" name="nfcAuth" [(ngModel)]="draft.nfc.requiresAuthentication" />
                 </label>
-                <p class="text-muted-foreground text-xs">
+                <p class="text-muted-foreground text-[13px] leading-snug">
                   Google: enables Smart Tap on the class with your issuer as redemption issuer. Smart Tap must be enabled for your issuer
                   account in the Google Pay &amp; Wallet Console.
                 </p>
@@ -516,7 +516,7 @@ interface ImageSlotInfo {
               </div>
             </div>
             <div hlmCardContent class="flex flex-col gap-2 text-sm">
-              <p class="text-muted-foreground text-xs">
+              <p class="text-muted-foreground text-[13px] leading-snug">
                 Upload the image in Appearance → Background. In poster style Apple shows 1 header field, up to 4 primary fields (primary +
                 secondary) and 2 footer fields (auxiliary). The poster keys are not in Apple's public pass.json reference yet, so test on
                 an iPhone with iOS 27.
@@ -533,7 +533,7 @@ interface ImageSlotInfo {
               <div class="flex flex-col gap-3">
                 <div>
                   <span class="text-sm font-medium">Front button (Google)</span>
-                  <p class="text-muted-foreground text-xs">AppLinkData: a call-to-action button on the front of the pass.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">AppLinkData: a call-to-action button on the front of the pass.</p>
                 </div>
                 <div class="grid gap-2 sm:grid-cols-3">
                   <input hlmInput maxlength="30" aria-label="Button label" placeholder="Label (max 30)" name="btnLabel" [(ngModel)]="button.label" />
@@ -547,7 +547,7 @@ interface ImageSlotInfo {
               <div class="flex flex-col gap-3">
                 <div>
                   <span class="text-sm font-medium">Links (both)</span>
-                  <p class="text-muted-foreground text-xs">
+                  <p class="text-muted-foreground text-[13px] leading-snug">
                     Google: links section in the details (LinksModuleData). Apple: tappable links on the back (attributedValue). Supports
                     https, tel:, mailto: and geo:.
                   </p>
@@ -573,7 +573,7 @@ interface ImageSlotInfo {
               <div class="flex flex-col gap-3">
                 <div>
                   <span class="text-sm font-medium">Value-added modules (Google)</span>
-                  <p class="text-muted-foreground text-xs">Cards with image, title (60), text (50) and link. Up to {{ maxModules }}.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">Cards with image, title (60), text (50) and link. Up to {{ maxModules }}.</p>
                 </div>
                 @for (m of draft.actions.modules; track $index; let i = $index) {
                   <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[4rem_1fr_1fr_auto]">
@@ -610,7 +610,7 @@ interface ImageSlotInfo {
               <div class="flex flex-col gap-3">
                 <div>
                   <span class="text-sm font-medium">Featured actions (Apple, poster style)</span>
-                  <p class="text-muted-foreground text-xs">Up to {{ maxFeatured }} action cards in Wallet (iOS 27+). Only shown with the poster style.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">Up to {{ maxFeatured }} action cards in Wallet (iOS 27+). Only shown with the poster style.</p>
                 </div>
                 @for (f of draft.actions.featured; track $index; let i = $index) {
                   <div class="grid gap-2 sm:grid-cols-[12rem_1fr_1fr_auto]">
@@ -646,7 +646,7 @@ interface ImageSlotInfo {
                 <div class="flex flex-col gap-2">
                   <label hlmLabel for="appStoreIds">App Store ids (Apple, optional)</label>
                   <input hlmInput id="appStoreIds" name="appStoreIds" inputmode="numeric" placeholder="123456789, 987654321" [(ngModel)]="appStoreIds" />
-                  <p class="text-muted-foreground text-xs">Your app shows on the pass and opens from it.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">Your app shows on the pass and opens from it.</p>
                 </div>
                 <div class="flex flex-col gap-2">
                   <label hlmLabel for="appLaunchURL">App launch URL (Apple, optional)</label>
@@ -734,7 +734,7 @@ interface ImageSlotInfo {
               <div class="flex max-w-xs flex-col gap-2">
                 <label hlmLabel for="maxDistance">Max distance in meters (Apple, optional)</label>
                 <input hlmInput id="maxDistance" name="maxDistance" type="number" min="1" step="1" placeholder="System default" [(ngModel)]="draft.locations.maxDistance" />
-                <p class="text-muted-foreground text-xs">Apple uses the smaller of this value and its own default for the pass type.</p>
+                <p class="text-muted-foreground text-[13px] leading-snug">Apple uses the smaller of this value and its own default for the pass type.</p>
               </div>
 
               <hlm-separator />
@@ -742,7 +742,7 @@ interface ImageSlotInfo {
               <div class="flex flex-col gap-3">
                 <div>
                   <span class="text-sm font-medium">iBeacons (Apple)</span>
-                  <p class="text-muted-foreground text-xs">Up to {{ maxLocations }}. The pass shows up when the iPhone is near one of these beacons.</p>
+                  <p class="text-muted-foreground text-[13px] leading-snug">Up to {{ maxLocations }}. The pass shows up when the iPhone is near one of these beacons.</p>
                 </div>
                 @for (b of draft.locations.beacons; track $index; let i = $index) {
                   <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[2fr_1fr_1fr_auto]">

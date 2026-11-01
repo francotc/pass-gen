@@ -132,7 +132,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
             <div class="flex flex-col gap-2">
               <label hlmLabel for="link">Link (optional)</label>
               <input hlmInput id="link" name="link" type="url" placeholder="https://" [(ngModel)]="d.link" />
-              <p class="text-muted-foreground text-xs">Apple shows it as a link on the back of the pass; Google appends it to the message.</p>
+              <p class="text-muted-foreground text-[13px] leading-snug">Apple shows it as a link on the back of the pass; Google appends it to the message.</p>
             </div>
 
             <div class="flex flex-col gap-3">
@@ -186,11 +186,11 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="changeMessage">Lock screen text</label>
                 <input hlmInput id="changeMessage" name="changeMessage" class="font-mono" [(ngModel)]="d.apple.changeMessage" />
-                <p class="text-muted-foreground text-xs">
+                <p class="text-muted-foreground text-[13px] leading-snug">
                   <code>%&#64;</code> is replaced by the message. Also supports <code>{{ '{{header}}' }}</code>.
                 </p>
               </div>
-              <p class="text-muted-foreground text-xs sm:col-span-2">
+              <p class="text-muted-foreground text-[13px] leading-snug sm:col-span-2">
                 Needs push configured in Settings. Sending the exact same text twice does not notify again. The message stays on the pass
                 until the next one replaces it.
               </p>
@@ -211,7 +211,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
               <label class="flex items-center justify-between gap-3 text-sm sm:col-span-2" for="googleNotify">
                 <span>
                   <span class="font-medium">Push notification</span>
-                  <span class="text-muted-foreground block text-xs">
+                  <span class="text-muted-foreground block text-[13px] leading-snug">
                     TEXT_AND_NOTIFY. Google allows 3 notifications per pass every 24 hours; off sends a silent message (TEXT).
                   </span>
                 </span>
@@ -244,10 +244,10 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
       </form>
 
       <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-8 xl:self-start">
-        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Preview{{ sample() ? ' · ' + sample()!.holderName : '' }}</span>
+        <span class="text-muted-foreground text-[13px] leading-snug font-medium tracking-wide uppercase">Preview{{ sample() ? ' · ' + sample()!.holderName : '' }}</span>
         @if (d.apple.enabled) {
           <figure class="flex flex-col gap-2">
-            <figcaption class="text-muted-foreground text-xs">iPhone lock screen</figcaption>
+            <figcaption class="text-muted-foreground text-[13px] leading-snug">iPhone lock screen</figcaption>
             <div class="flex items-start gap-3 rounded-2xl bg-neutral-200/70 p-3 backdrop-blur dark:bg-neutral-800/70">
               <span class="bg-primary text-primary-foreground inline-flex size-9 shrink-0 items-center justify-center rounded-lg">
                 <ng-icon name="lucideBellRing" />
@@ -261,7 +261,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
         }
         @if (d.google.enabled) {
           <figure class="flex flex-col gap-2">
-            <figcaption class="text-muted-foreground text-xs">Google Wallet message</figcaption>
+            <figcaption class="text-muted-foreground text-[13px] leading-snug">Google Wallet message</figcaption>
             <div class="border-border rounded-2xl border p-4 text-sm">
               <div class="font-medium">{{ r(d.header) || 'Header' }}</div>
               <div class="text-muted-foreground mt-1 break-words whitespace-pre-line">{{ r(d.body) || 'Message' }}{{ d.link ? '\n' + d.link : '' }}</div>
