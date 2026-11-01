@@ -19,6 +19,9 @@ export interface TemplateSummary {
   name: string;
   kind: Template['kind'];
   updatedAt: string;
+  /** Color de fondo y logo para la miniatura en la lista. */
+  color?: string;
+  logo?: string;
 }
 
 export interface PassSummary {

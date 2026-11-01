@@ -51,7 +51,7 @@ describe('store', () => {
     const s = store();
     const t: Template = makeTemplate({ id: 't1', name: 'Café' });
     await s.putTemplate(t);
-    expect(await s.listTemplates()).toEqual([{ id: 't1', name: 'Café', kind: 'loyalty', updatedAt: t.updatedAt }]);
+    expect(await s.listTemplates()).toEqual([{ id: 't1', name: 'Café', color: '#171717', kind: 'loyalty', updatedAt: t.updatedAt }]);
     expect(await s.getTemplate('t1')).toEqual(t);
 
     const p: Pass = {

@@ -1,10 +1,13 @@
-import { ChangeDetectorRef, Component, inject, input, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
+import { NgTemplateOutlet } from '@angular/common';
+import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowLeft,
   lucideImage,
+  lucideEye,
   lucideLanguages,
   lucideLocateFixed,
   lucideMousePointerClick,
@@ -53,7 +56,10 @@ import { applyBrand, BRAND_FIELD_LABELS, brandFromTemplate, COLOR_FIELDS, getFie
 import { contrast } from '../../core/color';
 import { dominantColor } from '../../core/dominant-color';
 import { syncMessage } from '../../core/sync-message';
-import { newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
+import { keyLabel, newTemplate, placeholderKeys, SECTION_LABELS, toInput } from '../../core/template-utils';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { PageHeader } from '../../shared/page-header';
+import { PlatformChip, type Platform } from '../../shared/platform-chip';
 import { LANGUAGE_TAG, LANGUAGES, languageName, pruneTranslations, translatableTexts } from '../../core/translations';
 import { ImageStudio } from '../../shared/image-studio';
 import { PassPreview } from '../../shared/pass-preview';
@@ -68,9 +74,13 @@ interface ImageSlotInfo {
   selector: 'app-template-editor',
   imports: [
     FormsModule,
-    RouterLink,
+    NgTemplateOutlet,
     NgIcon,
+    PageHeader,
+    ConfirmDialog,
+    PlatformChip,
     PassPreview,
+    HlmSheetImports,
     ImageStudio,
     HlmBadgeImports,
     HlmButtonImports,
@@ -82,40 +92,52 @@ interface ImageSlotInfo {
     HlmTabsImports,
     HlmTextareaImports,
   ],
-  providers: [provideIcons({ lucideSparkles, lucidePipette, lucideRotateCcw, lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
+  providers: [provideIcons({ lucideEye, lucideLanguages, lucideSparkles, lucidePipette, lucideRotateCcw, lucideArrowLeft, lucideShieldCheck, lucideImage, lucideMousePointerClick, lucideLocateFixed, lucideMapPin, lucideNfc, lucidePlus, lucideTrash2, lucideSave, lucideRefreshCw, lucideUpload, lucideX })],
   template: `
-    <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div class="flex flex-col gap-1">
-        <a routerLink="/templates" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-          <ng-icon name="lucideArrowLeft" /> Templates
-        </a>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ id() ? draft.name || 'Template' : 'New template' }}</h1>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        @if (id()) {
-          <button hlmBtn variant="destructive" type="button" (click)="remove()"><ng-icon name="lucideTrash2" /> Delete</button>
-          <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="save(false)"><ng-icon name="lucideSave" /> Save</button>
-          <button hlmBtn type="button" [disabled]="busy()" (click)="save(true)"><ng-icon name="lucideRefreshCw" /> Save and update passes</button>
-        } @else {
-          <button hlmBtn type="button" [disabled]="busy()" (click)="save(false)"><ng-icon name="lucideSave" /> Create template</button>
-        }
-      </div>
-    </header>
+    <app-page-header [title]="id() ? draft.name || 'Template' : 'New template'" [back]="{ link: '/templates', label: 'Templates' }" />
+
+    <app-confirm
+      #deleteConfirm
+      title="Delete this template?"
+      description="This can't be undone. Issued passes keep working but can no longer be updated from this template."
+      confirmLabel="Delete template"
+      [destructive]="true"
+      (confirmed)="remove()"
+    />
 
     @if (loaded()) {
       <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,40rem)]">
         <form class="flex min-w-0 flex-col gap-6" (ngSubmit)="save(false)">
-          <section hlmCard>
+          <div class="bg-background/95 sticky top-14 z-20 -mx-1 overflow-x-auto px-1 py-1 backdrop-blur md:top-0">
+            <div class="bg-muted inline-flex min-w-max gap-1 rounded-lg p-1" role="tablist" aria-label="Template sections">
+              @for (g of groups; track g.id) {
+                <button
+                  type="button"
+                  role="tab"
+                  class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                  [class]="group() === g.id ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+                  [attr.aria-selected]="group() === g.id"
+                  (click)="group.set(g.id)"
+                >
+                  {{ g.label }}
+                </button>
+              }
+            </div>
+          </div>
+          <section hlmCard [hidden]="group() !== 'design'">
             <div hlmCardHeader>
               <h2 hlmCardTitle>General</h2>
             </div>
             <div hlmCardContent class="grid gap-4 sm:grid-cols-2">
               <div class="flex flex-col gap-2 sm:col-span-2">
                 <label hlmLabel for="kind">Pass type</label>
-                <select hlmInput id="kind" name="kind" [disabled]="!!id()" [(ngModel)]="draft.kind">
-                  <option value="loyalty">Loyalty (storeCard · LoyaltyObject)</option>
-                  <option value="generic">Generic (generic · GenericObject)</option>
+                <select hlmInput id="kind" name="kind" [disabled]="!!id()" [(ngModel)]="draft.kind" aria-describedby="kind-hint">
+                  <option value="loyalty">Loyalty card (points, stamps, balance)</option>
+                  <option value="generic">Generic pass (membership, ID, anything else)</option>
                 </select>
+                <p id="kind-hint" class="text-muted-foreground text-[13px] leading-snug">
+                  {{ id() ? "The type can't be changed after the template is created." : "Can't be changed later." }}
+                </p>
               </div>
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="business">Business name</label>
@@ -182,7 +204,7 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'design'">
             <div hlmCardHeader>
               <h2 hlmCardTitle>Appearance</h2>
             </div>
@@ -235,7 +257,7 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'content'">
             <div hlmCardHeader>
               <h2 hlmCardTitle>Fields</h2>
               <p hlmCardDescription>
@@ -247,29 +269,44 @@ interface ImageSlotInfo {
               <hlm-tabs tab="headerFields">
                 <hlm-tabs-list class="w-full justify-start overflow-x-auto">
                   @for (s of sections; track s) {
-                    <button type="button" [hlmTabsTrigger]="s">{{ sectionLabels[s].title }} ({{ draft[s].length }})</button>
+                    <button type="button" class="shrink-0" [hlmTabsTrigger]="s">
+                      {{ sectionLabels[s].title }} <span class="text-muted-foreground tabular-nums">{{ draft[s].length }}</span>
+                    </button>
                   }
                 </hlm-tabs-list>
                 @for (s of sections; track s) {
                   <div [hlmTabsContent]="s" class="flex flex-col gap-3 pt-3">
                     <p class="text-muted-foreground text-[13px] leading-snug">{{ sectionLabels[s].hint }}</p>
                     @for (f of draft[s]; track $index; let i = $index) {
-                      <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_1.5fr_8rem_auto]">
-                        <input hlmInput aria-label="Label" placeholder="Label" [name]="s + '-label-' + i" [ngModel]="f.label" (ngModelChange)="onLabel(f, $event)" />
-                        <input hlmInput aria-label="Value" placeholder="Value or {{ '{{data}}' }}" [name]="s + '-value-' + i" [(ngModel)]="f.value" />
-                        <input hlmInput class="font-mono text-xs" aria-label="Key (auto from label)" placeholder="key" [name]="s + '-key-' + i" [(ngModel)]="f.key" />
-                        <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove field" (click)="removeField(s, i)">
+                      <div class="border-border grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_1.5fr_8rem_auto] sm:items-end">
+                        <div class="flex flex-col gap-1">
+                          <label hlmLabel class="text-[13px]" [for]="s + '-label-' + i">Label</label>
+                          <input hlmInput [id]="s + '-label-' + i" placeholder="STAMPS" [name]="s + '-label-' + i" [ngModel]="f.label" (ngModelChange)="onLabel(f, $event)" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                          <label hlmLabel class="text-[13px]" [for]="s + '-value-' + i">Value</label>
+                          <input hlmInput [id]="s + '-value-' + i" placeholder="Text or {{ '{{data}}' }}" [name]="s + '-value-' + i" [(ngModel)]="f.value" />
+                        </div>
+                        <div class="flex flex-col gap-1">
+                          <label hlmLabel class="text-[13px]" [for]="s + '-key-' + i">Key</label>
+                          <input hlmInput class="font-mono text-xs" [id]="s + '-key-' + i" placeholder="auto" [name]="s + '-key-' + i" [(ngModel)]="f.key" />
+                        </div>
+                        <button hlmBtn variant="ghost" size="icon" type="button" [attr.aria-label]="'Remove field ' + (f.label || i + 1)" (click)="removeField(s, i)">
                           <ng-icon name="lucideTrash2" />
                         </button>
                         @if (s !== 'backFields') {
-                          <input
-                            hlmInput
-                            class="sm:col-span-3"
-                            aria-label="Change message (Apple)"
-                            placeholder="Notification on change, e.g. You now have %@ stamps"
-                            [name]="s + '-msg-' + i"
-                            [(ngModel)]="f.changeMessage"
-                          />
+                          <div class="flex flex-col gap-1 sm:col-span-3">
+                            <label hlmLabel class="flex items-center gap-2 text-[13px]" [for]="s + '-msg-' + i">
+                              Lock screen notice when it changes <app-platform p="apple" />
+                            </label>
+                            <input
+                              hlmInput
+                              [id]="s + '-msg-' + i"
+                              placeholder="e.g. You now have %@ stamps (optional)"
+                              [name]="s + '-msg-' + i"
+                              [(ngModel)]="f.changeMessage"
+                            />
+                          </div>
                         }
                       </div>
                     }
@@ -282,7 +319,7 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'code'">
             <div hlmCardHeader>
               <h2 hlmCardTitle>Barcode</h2>
             </div>
@@ -301,12 +338,12 @@ interface ImageSlotInfo {
                 <input hlmInput id="bcMessage" name="bcMessage" placeholder="Empty = no barcode" [(ngModel)]="draft.barcode.message" (ngModelChange)="refresh()" />
               </div>
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="bcAlt" class="flex items-center justify-between gap-2">
+                <label hlmLabel for="bcAlt" class="flex h-[14px] items-center justify-between gap-2 leading-none">
                   Text below
                   @if (isAuto('altText')) {
-                    <span hlmBadge variant="secondary">Auto</span>
+                    <span class="text-muted-foreground text-[11px] font-normal">Auto</span>
                   } @else {
-                    <button hlmBtn variant="link" size="xs" type="button" (click)="resetField('altText')">Reset</button>
+                    <button type="button" class="text-[11px] font-normal underline" (click)="resetField('altText')">Reset</button>
                   }
                 </label>
                 <input hlmInput id="bcAlt" name="bcAlt" [ngModel]="get('altText')" (ngModelChange)="override('altText', $event)" />
@@ -314,7 +351,7 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'code'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideShieldCheck" /> One-time code (OTP)</h2>
               <p hlmCardDescription>
@@ -334,7 +371,7 @@ interface ImageSlotInfo {
             }
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'code'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideSparkles" /> Security &amp; display</h2>
               <p hlmCardDescription>Anti-fraud effects and restrictions. Changes are applied to issued passes when you save.</p>
@@ -343,14 +380,14 @@ interface ImageSlotInfo {
               @for (o of securityToggles; track o.key) {
                 <label class="flex items-center justify-between gap-3 text-sm" [for]="'sec-' + o.key">
                   <span>
-                    <span class="font-medium">{{ o.label }}</span>
+                    <span class="flex items-center gap-2 font-medium">{{ o.label }} <app-platform [p]="o.platform" /></span>
                     <span class="text-muted-foreground block text-[13px] leading-snug">{{ o.hint }}</span>
                   </span>
                   <hlm-switch [inputId]="'sec-' + o.key" [name]="'sec-' + o.key" [(ngModel)]="draft.security[o.key]" />
                 </label>
               }
               <div class="flex flex-col gap-2">
-                <label hlmLabel for="deviceSharing">Who can save the pass (Google)</label>
+                <label hlmLabel for="deviceSharing" class="flex items-center gap-2">Who can save the pass <app-platform p="google" /></label>
                 <select hlmInput id="deviceSharing" name="deviceSharing" [(ngModel)]="draft.security.deviceSharing">
                   <option [ngValue]="undefined">Google default</option>
                   <option value="ONE_USER_ALL_DEVICES">One person, all their devices</option>
@@ -361,12 +398,12 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard aria-labelledby="tr-title">
+          <section hlmCard aria-labelledby="tr-title" [hidden]="group() !== 'content'">
             <div hlmCardHeader>
               <h2 hlmCardTitle id="tr-title" class="flex items-center gap-2"><ng-icon name="lucideLanguages" /> Translations</h2>
               <p hlmCardDescription>
-                The pass shows in the phone's language when a translation exists. Apple gets one pass.strings per language; Google gets
-                translated values on every text. Placeholders like {{ '{{stamps}}' }} work in translations too.
+                Each phone shows the pass in its own language when a translation exists, on both wallets. Placeholders like
+                {{ '{{stamps}}' }} work in translations too.
               </p>
             </div>
             <div hlmCardContent class="flex flex-col gap-4">
@@ -453,7 +490,7 @@ interface ImageSlotInfo {
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'code'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideNfc" /> NFC</h2>
               <p hlmCardDescription>
@@ -474,7 +511,7 @@ interface ImageSlotInfo {
                   </p>
                 </div>
                 <div class="flex flex-col gap-2">
-                  <label hlmLabel for="nfcKey">Terminal public key (Apple)</label>
+                  <label hlmLabel for="nfcKey" class="flex items-center gap-2">Terminal public key <app-platform p="apple" /></label>
                   <textarea
                     hlmTextarea
                     id="nfcKey"
@@ -491,7 +528,7 @@ interface ImageSlotInfo {
                 </div>
                 <label class="flex items-center justify-between gap-3 text-sm" for="nfcAuth">
                   <span>
-                    <span class="font-medium">Require authentication (Apple)</span>
+                    <span class="flex items-center gap-2 font-medium">Require Face ID or passcode <app-platform p="apple" /></span>
                     <span class="text-muted-foreground block text-[13px] leading-snug">Face ID, Touch ID or passcode before sending the payload.</span>
                   </span>
                   <hlm-switch inputId="nfcAuth" name="nfcAuth" [(ngModel)]="draft.nfc.requiresAuthentication" />
@@ -504,12 +541,12 @@ interface ImageSlotInfo {
             }
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'design'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideImage" /> Full-screen background</h2>
               <p hlmCardDescription>
-                Apple: poster style (iOS 27+) with the background image edge to edge; older iPhones show the classic layout. Google has no
-                full-screen background: the image is shown full width in the pass details.
+                The cover photo fills the whole pass on iPhones with iOS 27 or later; older iPhones keep the classic layout. Google shows it
+                full width inside the pass details.
               </p>
               <div hlmCardAction>
                 <hlm-switch inputId="poster" name="poster" aria-label="Use the poster style" [(ngModel)]="draft.background.poster" />
@@ -517,14 +554,13 @@ interface ImageSlotInfo {
             </div>
             <div hlmCardContent class="flex flex-col gap-2 text-sm">
               <p class="text-muted-foreground text-[13px] leading-snug">
-                Upload the image in Appearance → Background. In poster style Apple shows 1 header field, up to 4 primary fields (primary +
-                secondary) and 2 footer fields (auxiliary). The poster keys are not in Apple's public pass.json reference yet, so test on
-                an iPhone with iOS 27.
+                Uses the cover photo from Appearance. In this style the iPhone shows 1 header field, up to 4 main fields (primary +
+                secondary) and 2 footer fields (auxiliary). Apple hasn't fully documented it yet: test on an iPhone with iOS 27.
               </p>
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'content'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideMousePointerClick" /> Buttons &amp; links</h2>
               <p hlmCardDescription>All URLs support placeholders such as <code>{{ '{{serial}}' }}</code>.</p>
@@ -532,8 +568,8 @@ interface ImageSlotInfo {
             <div hlmCardContent class="flex flex-col gap-6">
               <div class="flex flex-col gap-3">
                 <div>
-                  <span class="text-sm font-medium">Front button (Google)</span>
-                  <p class="text-muted-foreground text-[13px] leading-snug">AppLinkData: a call-to-action button on the front of the pass.</p>
+                  <span class="flex items-center gap-2 text-sm font-medium">Front button <app-platform p="google" /></span>
+                  <p class="text-muted-foreground text-[13px] leading-snug">A call-to-action button on the front of the pass.</p>
                 </div>
                 <div class="grid gap-2 sm:grid-cols-3">
                   <input hlmInput maxlength="30" aria-label="Button label" placeholder="Label (max 30)" name="btnLabel" [(ngModel)]="button.label" />
@@ -546,10 +582,10 @@ interface ImageSlotInfo {
 
               <div class="flex flex-col gap-3">
                 <div>
-                  <span class="text-sm font-medium">Links (both)</span>
+                  <span class="flex items-center gap-2 text-sm font-medium">Links <app-platform p="both" /></span>
                   <p class="text-muted-foreground text-[13px] leading-snug">
-                    Google: links section in the details (LinksModuleData). Apple: tappable links on the back (attributedValue). Supports
-                    https, tel:, mailto: and geo:.
+                    Shown in the pass details on Google and as tappable links on the back on iPhone. Web, phone (tel:), email (mailto:) and
+                    map (geo:) links work.
                   </p>
                 </div>
                 @for (l of draft.actions.links; track $index; let i = $index) {
@@ -572,7 +608,7 @@ interface ImageSlotInfo {
 
               <div class="flex flex-col gap-3">
                 <div>
-                  <span class="text-sm font-medium">Value-added modules (Google)</span>
+                  <span class="flex items-center gap-2 text-sm font-medium">Info cards <app-platform p="google" /></span>
                   <p class="text-muted-foreground text-[13px] leading-snug">Cards with image, title (60), text (50) and link. Up to {{ maxModules }}.</p>
                 </div>
                 @for (m of draft.actions.modules; track $index; let i = $index) {
@@ -609,7 +645,7 @@ interface ImageSlotInfo {
 
               <div class="flex flex-col gap-3">
                 <div>
-                  <span class="text-sm font-medium">Featured actions (Apple, poster style)</span>
+                  <span class="flex items-center gap-2 text-sm font-medium">Featured actions <app-platform p="apple" /> <span class="text-muted-foreground text-[13px] font-normal">full-screen style</span></span>
                   <p class="text-muted-foreground text-[13px] leading-snug">Up to {{ maxFeatured }} action cards in Wallet (iOS 27+). Only shown with the poster style.</p>
                 </div>
                 @for (f of draft.actions.featured; track $index; let i = $index) {
@@ -644,19 +680,19 @@ interface ImageSlotInfo {
 
               <div class="grid gap-3 sm:grid-cols-2">
                 <div class="flex flex-col gap-2">
-                  <label hlmLabel for="appStoreIds">App Store ids (Apple, optional)</label>
+                  <label hlmLabel for="appStoreIds" class="flex items-center gap-2">App Store ids <app-platform p="apple" /></label>
                   <input hlmInput id="appStoreIds" name="appStoreIds" inputmode="numeric" placeholder="123456789, 987654321" [(ngModel)]="appStoreIds" />
                   <p class="text-muted-foreground text-[13px] leading-snug">Your app shows on the pass and opens from it.</p>
                 </div>
                 <div class="flex flex-col gap-2">
-                  <label hlmLabel for="appLaunchURL">App launch URL (Apple, optional)</label>
+                  <label hlmLabel for="appLaunchURL" class="flex items-center gap-2">App launch URL <app-platform p="apple" /></label>
                   <input hlmInput id="appLaunchURL" name="appLaunchURL" placeholder="myapp://card/{{ '{{serial}}' }}" [(ngModel)]="draft.actions.appLaunchURL" />
                 </div>
               </div>
             </div>
           </section>
 
-          <section hlmCard>
+          <section hlmCard [hidden]="group() !== 'places'">
             <div hlmCardHeader>
               <h2 hlmCardTitle class="flex items-center gap-2"><ng-icon name="lucideMapPin" /> Locations</h2>
               <p hlmCardDescription>
@@ -732,7 +768,7 @@ interface ImageSlotInfo {
               </div>
 
               <div class="flex max-w-xs flex-col gap-2">
-                <label hlmLabel for="maxDistance">Max distance in meters (Apple, optional)</label>
+                <label hlmLabel for="maxDistance" class="flex items-center gap-2">Max distance in meters <app-platform p="apple" /></label>
                 <input hlmInput id="maxDistance" name="maxDistance" type="number" min="1" step="1" placeholder="System default" [(ngModel)]="draft.locations.maxDistance" />
                 <p class="text-muted-foreground text-[13px] leading-snug">Apple uses the smaller of this value and its own default for the pass type.</p>
               </div>
@@ -741,7 +777,7 @@ interface ImageSlotInfo {
 
               <div class="flex flex-col gap-3">
                 <div>
-                  <span class="text-sm font-medium">iBeacons (Apple)</span>
+                  <span class="flex items-center gap-2 text-sm font-medium">iBeacons <app-platform p="apple" /></span>
                   <p class="text-muted-foreground text-[13px] leading-snug">Up to {{ maxLocations }}. The pass shows up when the iPhone is near one of these beacons.</p>
                 </div>
                 @for (b of draft.locations.beacons; track $index; let i = $index) {
@@ -779,35 +815,111 @@ interface ImageSlotInfo {
               </div>
             </div>
           </section>
+          @if (id()) {
+            <section hlmCard class="border-destructive/30" [hidden]="group() !== 'design'" aria-labelledby="danger-title">
+              <div hlmCardHeader>
+                <h2 hlmCardTitle id="danger-title">Delete template</h2>
+                <p hlmCardDescription>Issued passes keep working but can no longer be updated from this template.</p>
+              </div>
+              <div hlmCardContent>
+                <button hlmBtn variant="destructive" type="button" (click)="deleteConfirm.open()"><ng-icon name="lucideTrash2" /> Delete template</button>
+              </div>
+            </section>
+          }
+
+          <div
+            class="border-border bg-background/95 sticky bottom-16 z-20 -mx-1 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 shadow-sm backdrop-blur md:bottom-4"
+          >
+            <span class="text-muted-foreground text-[13px]" role="status">
+              @if (dirty()) {
+                <span class="text-foreground font-medium">Unsaved changes</span>
+              } @else {
+                {{ id() ? 'All changes saved' : 'New template' }}
+              }
+            </span>
+            <span class="flex flex-wrap gap-2">
+              @if (id()) {
+                <button hlmBtn variant="outline" size="sm" type="button" [disabled]="busy()" (click)="save(false)"><ng-icon name="lucideSave" /> Save</button>
+                <button hlmBtn size="sm" type="button" [disabled]="busy()" (click)="save(true)"><ng-icon name="lucideRefreshCw" /> Save and update passes</button>
+              } @else {
+                <button hlmBtn size="sm" type="button" [disabled]="busy()" (click)="save(false)"><ng-icon name="lucideSave" /> Create template</button>
+              }
+            </span>
+          </div>
         </form>
 
-        <aside class="flex min-w-0 flex-col gap-4 xl:sticky xl:top-8 xl:self-start">
-          <app-pass-preview [template]="draft" [holderName]="sampleName" [data]="sample" />
-          @if (keys().length) {
-            <div hlmCard>
-              <div hlmCardHeader>
-                <h2 hlmCardTitle class="text-sm">Sample data</h2>
-              </div>
-              <div hlmCardContent class="grid gap-3 sm:grid-cols-2">
-                <div class="flex flex-col gap-1">
-                  <label hlmLabel for="sampleName" class="text-xs">holderName</label>
-                  <input hlmInput id="sampleName" [(ngModel)]="sampleName" />
-                </div>
-                @for (k of keys(); track k) {
-                  <div class="flex flex-col gap-1">
-                    <label hlmLabel class="text-xs" [for]="'sample-' + k">{{ k }}</label>
-                    <input hlmInput [id]="'sample-' + k" [(ngModel)]="sample[k]" />
-                  </div>
-                }
-              </div>
-            </div>
-          }
+        <aside class="hidden min-w-0 flex-col gap-4 xl:sticky xl:top-8 xl:flex xl:self-start" aria-label="Preview">
+          <ng-container *ngTemplateOutlet="previewTpl; context: { p: 'a' }" />
         </aside>
       </div>
+
+      <!-- Pantallas chicas: la vista previa se abre en un panel inferior -->
+      <hlm-sheet side="bottom">
+        <button
+          hlmSheetTrigger
+          hlmBtn
+          type="button"
+          class="fixed right-4 bottom-32 z-30 shadow-lg md:bottom-20 xl:hidden"
+          aria-label="Show pass preview"
+        >
+          <ng-icon name="lucideEye" /> Preview
+        </button>
+        <hlm-sheet-content *hlmSheetPortal="let ctx" class="max-h-[88dvh] overflow-y-auto p-4">
+          <h2 class="text-sm font-semibold">Preview</h2>
+          <ng-container *ngTemplateOutlet="previewTpl; context: { p: 's' }" />
+        </hlm-sheet-content>
+      </hlm-sheet>
     }
+
+    <ng-template #previewTpl let-p="p">
+      <app-pass-preview [template]="draft" [holderName]="sampleName" [data]="sample" />
+      @if (keys().length) {
+        <div hlmCard>
+          <div hlmCardHeader>
+            <h2 hlmCardTitle class="text-sm">Sample data</h2>
+            <p hlmCardDescription>Only for the preview.</p>
+          </div>
+          <div hlmCardContent class="grid gap-3 sm:grid-cols-2">
+            <div class="flex flex-col gap-1">
+              <label hlmLabel [for]="p + '-sampleName'" class="text-[13px]">Holder name</label>
+              <input hlmInput [id]="p + '-sampleName'" [(ngModel)]="sampleName" />
+            </div>
+            @for (k of keys(); track k) {
+              <div class="flex flex-col gap-1">
+                <label hlmLabel class="text-[13px]" [for]="p + '-sample-' + k">{{ keyLabel(draft, k) }}</label>
+                <input hlmInput [id]="p + '-sample-' + k" [(ngModel)]="sample[k]" />
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </ng-template>
   `,
 })
 export class TemplateEditor implements OnInit {
+  protected readonly keyLabel = keyLabel;
+  protected readonly groups = [
+    { id: 'design', label: 'Design' },
+    { id: 'content', label: 'Content' },
+    { id: 'code', label: 'Code & security' },
+    { id: 'places', label: 'Locations' },
+  ] as const;
+  protected readonly group = signal<'design' | 'content' | 'code' | 'places'>('design');
+
+  /** Foto del payload guardado, para saber si hay cambios sin guardar. */
+  private savedSnapshot = '';
+  private snapshot() {
+    return JSON.stringify(this.payload());
+  }
+  dirty() {
+    return this.loaded() && this.snapshot() !== this.savedSnapshot;
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  protected beforeUnload(ev: BeforeUnloadEvent) {
+    if (this.dirty()) ev.preventDefault();
+  }
+
   protected readonly api = inject(Api);
   private readonly router = inject(Router);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -853,18 +965,19 @@ export class TemplateEditor implements OnInit {
   protected readonly securityToggles: {
     key: 'googleShimmer' | 'unlockToView' | 'screenshots' | 'restrictToEmail' | 'noSharing' | 'noStripShine';
     label: string;
+    platform: Platform;
     hint: string;
   }[] = [
-    { key: 'googleShimmer', label: 'Security shimmer (Google)', hint: 'Animated foil glow on the pass details: a live pass is easy to tell from a screenshot.' },
-    { key: 'unlockToView', label: 'Require unlock to view (Google)', hint: 'The phone must be unlocked to open the pass.' },
-    { key: 'screenshots', label: 'Allow screenshots (Google)', hint: 'Turn off to block screenshots of the pass.' },
+    { key: 'googleShimmer', label: 'Security shimmer', platform: 'google' as const, hint: 'Animated foil glow on the pass details: a live pass is easy to tell from a screenshot.' },
+    { key: 'unlockToView', label: 'Require unlock to view', platform: 'google' as const, hint: 'The phone must be unlocked to open the pass.' },
+    { key: 'screenshots', label: 'Allow screenshots', platform: 'google' as const, hint: 'Turn off to block screenshots of the pass.' },
     {
       key: 'restrictToEmail',
-      label: 'Only the holder\'s email can save it (Google)',
+      label: 'Only the holder\'s email can save it', platform: 'google' as const,
       hint: 'Uses the pass email. Google asks issuers to contact their support before enabling save restrictions.',
     },
-    { key: 'noSharing', label: 'Prevent sharing (Apple)', hint: 'Hides the share option in Wallet (sharingProhibited).' },
-    { key: 'noStripShine', label: 'Remove strip shine (Apple)', hint: 'Turns off the glossy effect Wallet adds over the strip image.' },
+    { key: 'noSharing', label: 'Prevent sharing', platform: 'apple' as const, hint: 'Hides the share option in Wallet.' },
+    { key: 'noStripShine', label: 'Remove strip shine', platform: 'apple' as const, hint: 'Turns off the glossy effect Wallet adds over the strip image.' },
   ];
   protected readonly brandLabels = BRAND_FIELD_LABELS;
   /** Marca del draft (siempre presente en el editor). */
@@ -922,6 +1035,7 @@ export class TemplateEditor implements OnInit {
     this.draft.actions.button = this.button;
     this.savedCodeSignature = this.codeSignature(this.draft);
     this.loaded.set(true);
+    this.savedSnapshot = this.snapshot();
   }
 
   /** Regenera los valores automáticos (marca, colores, texto del código). */
@@ -1157,6 +1271,7 @@ export class TemplateEditor implements OnInit {
       const id = this.id();
       if (id) {
         await this.api.updateTemplate(id, payload);
+        this.savedSnapshot = JSON.stringify(payload);
         // El código (OTP, formato, NFC) cambia lo que se escanea: los pases emitidos tienen que actualizarse ya.
         const codeChanged = this.codeSignature(payload) !== this.savedCodeSignature;
         this.savedCodeSignature = this.codeSignature(payload);
@@ -1171,6 +1286,7 @@ export class TemplateEditor implements OnInit {
         }
       } else {
         const t = await this.api.createTemplate(payload);
+        this.savedSnapshot = JSON.stringify(payload);
         toast.success('Template created');
         await this.router.navigate(['/templates', t.id]);
       }
@@ -1183,9 +1299,10 @@ export class TemplateEditor implements OnInit {
 
   protected async remove() {
     const id = this.id();
-    if (!id || !confirm('Delete this template?')) return;
+    if (!id) return;
     try {
       await this.api.deleteTemplate(id);
+      this.savedSnapshot = this.snapshot();
       toast.success('Template deleted');
       await this.router.navigate(['/templates']);
     } catch (e) {

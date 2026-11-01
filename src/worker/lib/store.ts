@@ -6,6 +6,9 @@ export interface TemplateSummary {
   name: string;
   kind: Template['kind'];
   updatedAt: string;
+  /** Color de fondo y logo para la miniatura en la lista. */
+  color?: string;
+  logo?: string;
 }
 
 export interface PassSummary {
@@ -90,7 +93,14 @@ export class Store {
   }
 
   async putTemplate(t: Template): Promise<void> {
-    const metadata: TemplateSummary = { id: t.id, name: t.name, kind: t.kind, updatedAt: t.updatedAt };
+    const metadata: TemplateSummary = {
+      id: t.id,
+      name: t.name.slice(0, 120),
+      kind: t.kind,
+      updatedAt: t.updatedAt,
+      color: t.colors.background,
+      logo: t.images.logoSquare ?? t.images.icon ?? t.images.logo,
+    };
     await this.kv.put(`template:${t.id}`, JSON.stringify(t), { metadata });
   }
 
