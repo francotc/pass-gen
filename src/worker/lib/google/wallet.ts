@@ -115,7 +115,8 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
     delete (common as Record<string, unknown>).barcode;
     Object.assign(common, {
       rotatingBarcode: {
-        type: BARCODE[t.barcode.format],
+        // Los códigos rotativos solo admiten QR y PDF417; el resto cae a QR.
+        type: t.barcode.format === 'PDF417' ? 'PDF_417' : 'QR_CODE',
         valuePattern: otpBarcodeValue(p.serial, '{totp_value_0}'),
         alternateText: p.serial,
         totpDetails: {
@@ -208,6 +209,14 @@ export async function upsert(token: string, resource: Resource, body: Record<str
     ? await fetch(`${API}/${resource}/${id}`, { method: 'PUT', headers, body: JSON.stringify(body) })
     : await fetch(`${API}/${resource}`, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) throw await asError(res);
+}
+
+/** Lee un recurso tal como lo tiene Google (null si no existe). */
+export async function getResource(token: string, resource: Resource, id: string): Promise<Record<string, unknown> | null> {
+  const res = await fetch(`${API}/${resource}/${encodeURIComponent(id)}`, { headers: { authorization: `Bearer ${token}` } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw await asError(res);
+  return (await res.json()) as Record<string, unknown>;
 }
 
 export interface GoogleMessage {

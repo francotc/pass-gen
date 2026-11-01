@@ -55,3 +55,13 @@ describe('OTP en los pases', () => {
     expect((await store.getPass('C'))!.updatedAt).toBe(pass.updatedAt);
   });
 });
+
+describe('Google OTP', () => {
+  it('fuerza QR para formatos que no admiten rotación y conserva PDF417', async () => {
+    const otp = (await passOtp(KEY, makeTemplate({ otp: { enabled: true, googlePeriodSeconds: 30 } }), 'S1'))!;
+    for (const [format, type] of [['AZTEC', 'QR_CODE'], ['CODE128', 'QR_CODE'], ['PDF417', 'PDF_417'], ['QR', 'QR_CODE']] as const) {
+      const t = makeTemplate({ otp: { enabled: true, googlePeriodSeconds: 30 }, barcode: { format, message: 'x' } });
+      expect((buildObject(t, pass, '338', {}, otp).rotatingBarcode as { type: string }).type).toBe(type);
+    }
+  });
+});

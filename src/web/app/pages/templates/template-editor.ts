@@ -712,6 +712,7 @@ export class TemplateEditor implements OnInit {
     }
     // La vista previa lee el botón desde el draft; se comparte la referencia mientras se edita.
     this.draft.actions.button = this.button;
+    this.savedCodeSignature = this.codeSignature(this.draft);
     this.loaded.set(true);
   }
 
@@ -776,6 +777,12 @@ export class TemplateEditor implements OnInit {
     delete this.draft.images[slot];
   }
 
+  /** Configuración que define el código escaneable; si cambia, se actualizan los pases al guardar. */
+  private savedCodeSignature = '';
+  private codeSignature(t: TemplateInput) {
+    return JSON.stringify({ otp: t.otp, format: t.barcode.format, message: t.barcode.message, nfc: t.nfc });
+  }
+
   /** Plantilla a guardar: botón vacío = sin botón; App Store ids desde el texto. */
   private payload(): TemplateInput {
     const b = this.button;
@@ -808,11 +815,14 @@ export class TemplateEditor implements OnInit {
       const id = this.id();
       if (id) {
         await this.api.updateTemplate(id, payload);
-        if (publish) {
+        // El código (OTP, formato, NFC) cambia lo que se escanea: los pases emitidos tienen que actualizarse ya.
+        const codeChanged = this.codeSignature(payload) !== this.savedCodeSignature;
+        this.savedCodeSignature = this.codeSignature(payload);
+        if (publish || codeChanged) {
           const res = await this.api.publishTemplate(id);
           const msg = syncMessage(res);
           const text = `${res.passes} pass(es) · ${msg.text}`;
-          if (msg.ok) toast.success('Template saved and passes updated', { description: text });
+          if (msg.ok) toast.success(publish ? 'Template saved and passes updated' : 'Code settings changed: passes updated', { description: text });
           else toast.warning('Template saved with warnings', { description: text });
         } else {
           toast.success('Template saved', { description: 'Existing passes update when you use “Save and update passes”.' });

@@ -2,7 +2,7 @@ import { env } from 'cloudflare:test';
 import { exports } from 'cloudflare:workers';
 import { unzipSync } from 'fflate';
 import forge from 'node-forge';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Pass, Template } from '../src/worker/types';
 import { generatePkcs8Pem, makeTemplate, selfSignedCert } from './helpers';
 
@@ -221,5 +221,36 @@ describe('OTP', () => {
   it('valida el período del OTP', async () => {
     const bad3 = await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 5 } });
     expect(await bad3.json()).toMatchObject({ error: 'OTP period must be between 10 and 300 seconds' });
+  });
+});
+
+describe('diagnóstico de Google', () => {
+  it('resume lo que Google tiene guardado para el pase', async () => {
+    const { pem } = await generatePkcs8Pem('RS256');
+    await json('/api/settings/google', 'PUT', { issuerId: '338', serviceAccount: { client_email: 'sa@x', private_key: pem } });
+    const tpl = (await (await json('/api/templates', 'POST', { ...templateInput, otp: { enabled: true, googlePeriodSeconds: 30 } })).json()) as Template;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes('oauth2')) return Response.json({ access_token: 'tok' });
+      if (!init?.method && url.includes('/loyaltyObject/338.')) {
+        return Response.json({
+          state: 'ACTIVE',
+          hasUsers: true,
+          rotatingBarcode: { type: 'QR_CODE', valuePattern: 'X.{totp_value_0}', totpDetails: { periodMillis: '30000' } },
+        });
+      }
+      return init?.method ? Response.json({}) : new Response('', { status: 404 });
+    });
+    const pass = ((await (await json('/api/passes', 'POST', { templateId: tpl.id, holderName: 'Ana', data: {} })).json()) as { pass: Pass }).pass;
+    expect(await (await call(`/api/passes/${pass.serial}/google-status`)).json()).toEqual({
+      exists: true,
+      state: 'ACTIVE',
+      hasUsers: true,
+      smartTap: false,
+      barcode: null,
+      rotatingBarcode: { type: 'QR_CODE', valuePattern: 'X.{totp_value_0}', periodSeconds: 30 },
+      otpEnabledInTemplate: true,
+    });
+    vi.restoreAllMocks();
   });
 });

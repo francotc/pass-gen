@@ -4,7 +4,7 @@ import type { AppEnv } from '../env';
 import { certInfo, certToPem, parseP12, passIdsFromCert } from '../lib/apple/certs';
 import { buildPkpass } from '../lib/apple/pkpass';
 import { randomToken } from '../lib/crypto';
-import { saveLink } from '../lib/google/wallet';
+import { getAccessToken, getResource, objectId, objectResource, saveLink } from '../lib/google/wallet';
 import { Store } from '../lib/store';
 import { sendNotification } from '../lib/notifications';
 import { publishTemplate, syncPass, type Ctx } from '../lib/sync';
@@ -249,6 +249,30 @@ api.get('/passes/:serial/pkpass', async (c) => {
   return c.body(bytes, 200, {
     'content-type': 'application/vnd.apple.pkpass',
     'content-disposition': `attachment; filename="${pass.serial}.pkpass"`,
+  });
+});
+
+/** Diagnóstico: qué tiene Google guardado para este pase (código, OTP, Smart Tap, estado). */
+api.get('/passes/:serial/google-status', async (c) => {
+  const s = store(c);
+  const pass = await s.getPass(c.req.param('serial'));
+  if (!pass) return c.json({ error: 'Not found' }, 404);
+  const [tpl, google] = await Promise.all([s.getTemplate(pass.templateId), s.getGoogleSettings().catch(() => null)]);
+  if (!tpl) return c.json({ error: 'Template not found' }, 404);
+  if (!google) throw new ValidationError('Google is not configured');
+  const token = await getAccessToken(google);
+  const obj = await getResource(token, objectResource(tpl.kind), pass.google.objectId ?? objectId(google.issuerId, pass.serial));
+  if (!obj) return c.json({ exists: false });
+  const rb = obj.rotatingBarcode as { type?: string; valuePattern?: string; totpDetails?: { periodMillis?: string } } | undefined;
+  const bc = obj.barcode as { type?: string; value?: string } | undefined;
+  return c.json({
+    exists: true,
+    state: obj.state,
+    hasUsers: obj.hasUsers ?? false,
+    smartTap: Boolean(obj.smartTapRedemptionValue),
+    barcode: bc ? { type: bc.type, value: bc.value } : null,
+    rotatingBarcode: rb ? { type: rb.type, valuePattern: rb.valuePattern, periodSeconds: Number(rb.totpDetails?.periodMillis ?? 0) / 1000 } : null,
+    otpEnabledInTemplate: tpl.otp?.enabled ?? false,
   });
 });
 

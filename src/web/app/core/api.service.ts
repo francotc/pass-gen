@@ -40,6 +40,16 @@ export interface NotificationSummary {
   failed: number;
 }
 
+export interface GoogleStatus {
+  exists: boolean;
+  state?: string;
+  hasUsers?: boolean;
+  smartTap?: boolean;
+  barcode?: { type?: string; value?: string } | null;
+  rotatingBarcode?: { type?: string; valuePattern?: string; periodSeconds: number } | null;
+  otpEnabledInTemplate?: boolean;
+}
+
 export interface PassWithSync {
   pass: Pass;
   sync: SyncResult;
@@ -123,6 +133,9 @@ export class Api {
   }
   syncPass(serial: string) {
     return firstValueFrom(this.http.post<SyncResult>(`/api/passes/${encodeURIComponent(serial)}/sync`, {}));
+  }
+  googleStatus(serial: string) {
+    return this.get<GoogleStatus>(`/api/passes/${encodeURIComponent(serial)}/google-status`);
   }
   googleLink(serial: string) {
     return this.get<{ url: string }>(`/api/passes/${encodeURIComponent(serial)}/google-link`);

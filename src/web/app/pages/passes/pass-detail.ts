@@ -11,6 +11,7 @@ import {
   lucideExternalLink,
   lucideRefreshCw,
   lucideSave,
+  lucideSearch,
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -20,7 +21,7 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import type { Pass, Template } from '../../../../worker/types';
-import { Api, errorMessage } from '../../core/api.service';
+import { Api, errorMessage, type GoogleStatus } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
 import { placeholderKeys } from '../../core/template-utils';
 import { PassPreview } from '../../shared/pass-preview';
@@ -40,7 +41,7 @@ import { PassPreview } from '../../shared/pass-preview';
     HlmLabelImports,
     HlmSwitchImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideBell, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave })],
+  providers: [provideIcons({ lucideArrowLeft, lucideBell, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave, lucideSearch })],
   template: `
     <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div class="flex flex-col gap-1">
@@ -154,7 +155,28 @@ import { PassPreview } from '../../shared/pass-preview';
                 <div class="flex flex-wrap gap-2">
                   <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="openGoogle()"><ng-icon name="lucideExternalLink" /> Open link</button>
                   <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="copyGoogle()"><ng-icon name="lucideCopy" /> Copy link</button>
+                  <button hlmBtn variant="ghost" type="button" [disabled]="checking()" (click)="checkGoogle()"><ng-icon name="lucideSearch" /> Check Google pass</button>
                 </div>
+                @if (googleStatus(); as g) {
+                  <div class="bg-muted flex flex-col gap-1 rounded-md p-3 text-xs" role="status">
+                    @if (!g.exists) {
+                      <span>Google has no object for this pass yet. Use “Retry sync”.</span>
+                    } @else {
+                      <span>State: {{ g.state }} · Saved by a user: {{ g.hasUsers ? 'yes' : 'no' }}</span>
+                      @if (g.rotatingBarcode; as rb) {
+                        <span>Rotating code: {{ rb.type }} · every {{ rb.periodSeconds }} s · {{ rb.valuePattern }}</span>
+                      } @else if (g.otpEnabledInTemplate) {
+                        <span class="text-destructive">OTP is on in the template but Google still has a static code. Use “Retry sync”.</span>
+                      }
+                      @if (g.barcode; as b) {
+                        <span>Static code: {{ b.type }} · {{ b.value }}</span>
+                      }
+                      @if (g.smartTap) {
+                        <span>Smart Tap (NFC) is on: Google hides the code behind “Show code”.</span>
+                      }
+                    }
+                  </div>
+                }
               </div>
             </div>
           </section>
@@ -254,6 +276,20 @@ export class PassDetail implements OnInit {
       window.open(url, '_blank', 'noopener');
     } catch (e) {
       toast.error(errorMessage(e));
+    }
+  }
+
+  protected readonly googleStatus = signal<GoogleStatus | null>(null);
+  protected readonly checking = signal(false);
+
+  protected async checkGoogle() {
+    this.checking.set(true);
+    try {
+      this.googleStatus.set(await this.api.googleStatus(this.serial()));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      this.checking.set(false);
     }
   }
 
