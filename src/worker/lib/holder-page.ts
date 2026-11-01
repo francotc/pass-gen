@@ -31,6 +31,8 @@ export interface HolderPageInput {
   googleBadge: boolean;
   logoUrl?: string;
   device: Device;
+  /** Google está configurado pero el pase todavía no se sincronizó. */
+  googlePending?: boolean;
   /** Motivo por el que el pase no se puede agregar (anulado, vencido). */
   unavailable?: string;
 }
@@ -53,11 +55,19 @@ export function renderHolderPage(i: HolderPageInput): string {
       : `<a class="badge google" href="${esc(i.googleUrl!)}">Add to Google Wallet</a>`
     : '';
   const none = !showApple && !showGoogle;
+  const pendingGoogle = i.googlePending && i.device !== 'ios' ? '<p class="note">Google Wallet will be available here shortly. Try again in a few minutes.</p>' : '';
+  const qr =
+    i.device === 'other'
+      ? `<div class="qr">${qrSvg(i.pageUrl)}<p><strong>On your phone?</strong> Scan this code with the camera. It opens this page and shows the right button for your iPhone or Android.</p></div>
+         ${none ? '' : '<p class="or">Or add it from this computer</p>'}`
+      : '';
   const body = i.unavailable
     ? `<p class="note">${esc(i.unavailable)}</p>`
-    : `<div class="actions">${appleButton}${googleButton}</div>
-       ${none ? '<p class="note">This pass is not available for your device yet.</p>' : ''}
-       ${i.device === 'other' ? `<div class="qr">${qrSvg(i.pageUrl)}<p>Scan with your phone to add the pass</p></div>` : ''}`;
+    : `${qr}<div class="actions">${appleButton}${googleButton}</div>
+       ${pendingGoogle}
+       ${none && !pendingGoogle ? '<p class="note">This pass is not available for your device yet.</p>' : ''}`;
+  const initial = (t.organizationName.match(/[\p{L}\p{N}]/u)?.[0] ?? '').toUpperCase();
+  const logo = i.logoUrl ? `<img src="${esc(i.logoUrl)}" alt="">` : initial ? `<span class="mono" aria-hidden="true">${esc(initial)}</span>` : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -78,13 +88,15 @@ h1{margin:0;font-size:20px}.note{margin:0;color:var(--muted);font-size:14px}
 .actions{display:flex;flex-direction:column;gap:12px;align-items:center}
 .badge{display:inline-flex;min-height:48px;align-items:center}.badge img{height:48px;width:auto}
 .badge.google{padding:0 20px;border-radius:999px;background:#000;color:#fff;text-decoration:none;font-weight:500}
-.qr{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted);font-size:13px}.qr svg{width:160px;height:160px;background:#fff;border-radius:12px}
+.qr{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted);font-size:14px;max-width:300px}.qr p{margin:0}.qr strong{color:var(--fg)}.qr svg{width:180px;height:180px;background:#fff;border-radius:12px}
+.or{margin:0;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.card .mono{display:inline-flex;width:32px;height:32px;border-radius:50%;align-items:center;justify-content:center;background:rgba(255,255,255,.15);font-size:15px}
 </style>
 </head>
 <body>
 <main>
   <div class="card">
-    <header>${i.logoUrl ? `<img src="${esc(i.logoUrl)}" alt="">` : ''}<span>${esc(t.organizationName)}</span></header>
+    <header>${logo}<span>${esc(t.organizationName)}</span></header>
     <div class="name">${esc(i.pass.holderName)}</div>
     <div class="sub">${esc(t.google.programName || t.name)}</div>
   </div>

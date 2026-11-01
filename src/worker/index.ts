@@ -64,6 +64,7 @@ app.get('/public/p/:serial/:token', async (c) => {
     appleUrl: apple ? `${origin}/public/passes/${pass.serial}/${token}.pkpass` : undefined,
     googleUrl,
     googleBadge,
+    googlePending: !!google && !googleUrl,
     logoUrl: logo ? `/public/images/${logo}` : undefined,
     device: detectDevice(c.req.header('user-agent') ?? ''),
     unavailable: pass.voided ? 'This pass is no longer valid.' : undefined,

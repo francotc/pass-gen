@@ -82,6 +82,11 @@ export class Api {
   }
 
   // Settings
+  testSettings() {
+    return firstValueFrom(
+      this.http.post<{ apple: { ok: boolean; detail: string }; google: { ok: boolean; detail: string } }>('/api/settings/test', {}),
+    );
+  }
   settings() {
     return this.get<SettingsStatus>('/api/settings');
   }

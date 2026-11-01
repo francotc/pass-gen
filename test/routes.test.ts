@@ -128,6 +128,19 @@ describe('plantillas y pases', () => {
   });
 });
 
+describe('prueba de conexión', () => {
+  it('Apple firma con el certificado; Google sin configurar', async () => {
+    expect(await (await call('/api/settings/test', { method: 'POST' })).json()).toEqual({
+      apple: { ok: false, detail: 'Not configured' },
+      google: { ok: false, detail: 'Not configured' },
+    });
+    await setupApple();
+    const r = (await (await call('/api/settings/test', { method: 'POST' })).json()) as { apple: { ok: boolean; detail: string } };
+    expect(r.apple.ok).toBe(true);
+    expect(r.apple.detail).toContain('Certificate signs passes');
+  });
+});
+
 describe('web service Apple', () => {
   it('registro, consulta de actualizados, descarga y baja', async () => {
     await setupApple();

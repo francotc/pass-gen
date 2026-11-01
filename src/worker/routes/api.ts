@@ -2,8 +2,8 @@ import { otpSecret, parseOtpBarcode, passOtp, verifyOtp } from '../lib/otp';
 import { Hono, type Context } from 'hono';
 import type { AppEnv } from '../env';
 import { certInfo, certToPem, parseP12, passIdsFromCert } from '../lib/apple/certs';
-import { buildPkpass } from '../lib/apple/pkpass';
-import { randomToken } from '../lib/crypto';
+import { buildPkpass, signManifest } from '../lib/apple/pkpass';
+import { randomToken, signJwt } from '../lib/crypto';
 import { getAccessToken, getResource, objectId, objectResource, saveLink } from '../lib/google/wallet';
 import { Store } from '../lib/store';
 import { sendNotification } from '../lib/notifications';
@@ -118,6 +118,51 @@ api.put('/settings/apple', async (c) => {
 });
 
 /** JSON: { issuerId, serviceAccount } (el JSON del service account como objeto o string). */
+export interface ConnectionCheck {
+  ok: boolean;
+  detail: string;
+}
+
+/** Prueba las credenciales guardadas: Apple firma un manifest de prueba; Google pide un token y lee el issuer. */
+api.post('/settings/test', async (c) => {
+  const s = store(c);
+  const [apple, google] = await Promise.all([s.getAppleSettings().catch(() => null), s.getGoogleSettings().catch(() => null)]);
+  const out: { apple: ConnectionCheck; google: ConnectionCheck } = {
+    apple: { ok: false, detail: 'Not configured' },
+    google: { ok: false, detail: 'Not configured' },
+  };
+  if (apple) {
+    try {
+      const { notAfter } = certInfo(apple.certPem);
+      if (Date.parse(notAfter) < Date.now()) throw new Error('The certificate has expired');
+      signManifest(new TextEncoder().encode('{}'), apple);
+      let push = c.env.APNS_CERT ? 'push via certificate (mTLS)' : 'push not configured';
+      if (apple.apnsKeyPem && apple.apnsKeyId) {
+        await signJwt('ES256', apple.apnsKeyPem, { kid: apple.apnsKeyId }, { iss: apple.teamId, iat: Math.floor(Date.now() / 1000) });
+        push = 'push key OK';
+      }
+      out.apple = { ok: true, detail: `Certificate signs passes · ${push}` };
+    } catch (e) {
+      out.apple = { ok: false, detail: (e as Error).message };
+    }
+  }
+  if (google) {
+    try {
+      const token = await getAccessToken(google);
+      const res = await fetch(`https://walletobjects.googleapis.com/walletobjects/v1/issuer/${encodeURIComponent(google.issuerId)}`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const body = (await res.json().catch(() => ({}))) as { name?: string; error?: { message?: string } };
+      out.google = res.ok
+        ? { ok: true, detail: `Connected to issuer ${body.name ?? google.issuerId}` }
+        : { ok: false, detail: `Google Wallet ${res.status}: ${body.error?.message ?? res.statusText}` };
+    } catch (e) {
+      out.google = { ok: false, detail: (e as Error).message };
+    }
+  }
+  return c.json(out);
+});
+
 api.put('/settings/google', async (c) => {
   const body = await c.req.json<{ issuerId?: string; serviceAccount?: unknown }>();
   const issuerId = text(body.issuerId);

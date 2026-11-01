@@ -1,8 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCircleAlert, lucideKeyRound, lucideShieldCheck } from '@ng-icons/lucide';
+import { lucideCircleAlert, lucideCircleCheck, lucideCircleX, lucideKeyRound, lucidePlugZap, lucideShieldCheck, lucideTriangleAlert } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
 import { HlmBadgeImports } from '@spartan-ng/helm/badge';
@@ -13,6 +13,8 @@ import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import type { SettingsStatus } from '../../../../worker/types';
 import { Api, errorMessage } from '../../core/api.service';
+import { FilePicker } from '../../shared/file-picker';
+import { PageHeader } from '../../shared/page-header';
 
 type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
 
@@ -29,17 +31,53 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
     HlmInputImports,
     HlmLabelImports,
     HlmTextareaImports,
+    PageHeader,
+    FilePicker,
   ],
-  providers: [provideIcons({ lucideShieldCheck, lucideKeyRound, lucideCircleAlert })],
+  providers: [provideIcons({ lucideShieldCheck, lucideKeyRound, lucideCircleAlert, lucideCircleCheck, lucideCircleX, lucidePlugZap, lucideTriangleAlert })],
   template: `
-    <header class="mb-6 flex flex-col gap-1">
-      <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-      <p class="text-muted-foreground text-sm">
-        Apple Wallet and Google Wallet credentials. They are stored encrypted on the server and never shown again.
-      </p>
-    </header>
+    <app-page-header title="Settings" description="Apple Wallet and Google Wallet credentials. They are stored encrypted on the server and never shown again.">
+      <button hlmBtn variant="outline" type="button" [disabled]="testing() || (!status()?.apple && !status()?.google)" (click)="test()">
+        <ng-icon name="lucidePlugZap" /> {{ testing() ? 'Testing…' : 'Test connection' }}
+      </button>
+    </app-page-header>
 
-    <div class="grid max-w-5xl gap-6 lg:grid-cols-2">
+    @if (checks(); as ch) {
+      <div class="mb-6 grid gap-3 sm:grid-cols-2" role="status" aria-live="polite">
+        @for (c of [{ name: 'Apple Wallet', r: ch.apple }, { name: 'Google Wallet', r: ch.google }]; track c.name) {
+          <div
+            class="flex items-start gap-2 rounded-lg border p-3 text-sm"
+            [class]="c.r.ok ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-destructive/30 bg-destructive/10'"
+          >
+            <ng-icon [name]="c.r.ok ? 'lucideCircleCheck' : 'lucideCircleX'" class="mt-0.5 shrink-0" [class]="c.r.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'" />
+            <span><span class="font-medium">{{ c.name }}:</span> {{ c.r.detail }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (expiry(); as e) {
+      @if (e.days <= 60) {
+        <div
+          role="alert"
+          class="mb-6 flex items-start gap-2 rounded-lg border p-3 text-sm"
+          [class]="e.days <= 30 ? 'border-destructive/30 bg-destructive/10' : 'border-amber-500/30 bg-amber-500/10'"
+        >
+          <ng-icon name="lucideTriangleAlert" class="mt-0.5 shrink-0" />
+          <span>
+            @if (e.days < 0) {
+              <span class="font-medium">The Apple certificate expired on {{ e.date | date: 'dd.MM.yyyy' }}.</span> New passes can't be signed
+              and existing ones stop updating. Renew it in the Apple Developer portal and upload the new .p12 below.
+            } @else {
+              <span class="font-medium">The Apple certificate expires in {{ e.days }} day{{ e.days === 1 ? '' : 's' }} ({{ e.date | date: 'dd.MM.yyyy' }}).</span>
+              Renew it in the Apple Developer portal and upload the new .p12 below before then.
+            }
+          </span>
+        </div>
+      }
+    }
+
+    <div class="grid items-start gap-6 lg:grid-cols-2">
       <section hlmCard>
         <div hlmCardHeader>
           <h2 hlmCardTitle>Apple Wallet</h2>
@@ -62,7 +100,14 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
               <dt class="text-muted-foreground">Certificate</dt>
               <dd class="truncate">{{ a.certSubject }}</dd>
               <dt class="text-muted-foreground">Expires</dt>
-              <dd>{{ a.certExpires | date: 'dd.MM.yyyy' }}</dd>
+              <dd class="flex items-center gap-2">
+                {{ a.certExpires | date: 'dd.MM.yyyy' }}
+                @if (expiry(); as e) {
+                  @if (e.days <= 60) {
+                    <span hlmBadge [variant]="e.days <= 30 ? 'destructive' : 'outline'">{{ e.days < 0 ? 'Expired' : e.days + ' days left' }}</span>
+                  }
+                }
+              </dd>
               <dt class="text-muted-foreground">Push</dt>
               <dd>{{ a.apns ? 'Configured' + (a.apnsKeyId ? ' (key ' + a.apnsKeyId + ')' : ' (mTLS)') : 'Not configured' }}</dd>
             </dl>
@@ -70,7 +115,7 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
 
           <div class="flex flex-col gap-2">
             <label hlmLabel for="p12">Pass Type ID certificate (.p12)</label>
-            <input hlmInput id="p12" type="file" accept=".p12,.pfx" (change)="pick('p12', $event)" />
+            <app-file-picker inputId="p12" accept=".p12,.pfx" (picked)="pick('p12', $event)" />
           </div>
           <div class="flex flex-col gap-2">
             <label hlmLabel for="p12pw">.p12 password</label>
@@ -81,17 +126,17 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
             <div class="mt-3 flex flex-col gap-3">
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="cert">Certificate (.pem / .cer)</label>
-                <input hlmInput id="cert" type="file" accept=".pem,.cer,.crt" (change)="pick('cert', $event)" />
+                <app-file-picker inputId="cert" accept=".pem,.cer,.crt" (picked)="pick('cert', $event)" />
               </div>
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="key">Private key (.pem, unencrypted)</label>
-                <input hlmInput id="key" type="file" accept=".pem,.key" (change)="pick('key', $event)" />
+                <app-file-picker inputId="key" accept=".pem,.key" (picked)="pick('key', $event)" />
               </div>
             </div>
           </details>
           <div class="flex flex-col gap-2">
             <label hlmLabel for="wwdr">Apple WWDR certificate (G4, .cer or .pem)</label>
-            <input hlmInput id="wwdr" type="file" accept=".pem,.cer,.crt" (change)="pick('wwdr', $event)" />
+            <app-file-picker inputId="wwdr" accept=".pem,.cer,.crt" (picked)="pick('wwdr', $event)" />
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="flex flex-col gap-2">
@@ -106,7 +151,7 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="flex flex-col gap-2">
               <label hlmLabel for="apnsKey">APNs key (.p8)</label>
-              <input hlmInput id="apnsKey" type="file" accept=".p8" (change)="pick('apnsKey', $event)" />
+              <app-file-picker inputId="apnsKey" accept=".p8" (picked)="pick('apnsKey', $event)" />
             </div>
             <div class="flex flex-col gap-2">
               <label hlmLabel for="kid">APNs key ID</label>
@@ -149,7 +194,7 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
           </div>
           <div class="flex flex-col gap-2">
             <label hlmLabel for="sa">Service account JSON</label>
-            <input hlmInput id="saFile" type="file" accept=".json,application/json" aria-label="Service account JSON file" (change)="pickServiceAccount($event)" />
+            <app-file-picker inputId="saFile" accept=".json,application/json" (picked)="pickServiceAccount($event)" />
             <textarea hlmTextarea id="sa" name="serviceAccount" rows="5" class="font-mono text-xs" placeholder='{"type": "service_account", ...}' [(ngModel)]="serviceAccount"></textarea>
           </div>
           <div>
@@ -164,8 +209,8 @@ type AppleFile = 'p12' | 'cert' | 'key' | 'wwdr' | 'apnsKey';
         <div hlmAlertDescription>
           <p>
             Protect the app with an Access application and add a <strong>Bypass</strong> policy for
-            <code>/v1/*</code> (Apple web service: iPhones authenticate with the pass token) and
-            <code>/public/*</code> (images for Google and the holder's .pkpass download).
+            <code>/v1/*</code> (iPhones update their passes with the pass token) and <code>/public/*</code> (holder page, pass
+            download, images for Google and Google's save/remove callbacks).
           </p>
         </div>
       </section>
@@ -199,17 +244,35 @@ export class Settings implements OnInit {
     }
   }
 
-  protected pick(kind: AppleFile, ev: Event) {
-    const file = (ev.target as HTMLInputElement).files?.[0];
+  protected pick(kind: AppleFile, file: File | null) {
     if (file) this.files[kind] = file;
     else delete this.files[kind];
   }
 
-  protected async pickServiceAccount(ev: Event) {
-    const file = (ev.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    this.serviceAccount = await file.text();
+  protected async pickServiceAccount(file: File | null) {
+    this.serviceAccount = file ? await file.text() : '';
   }
+
+  protected readonly testing = signal(false);
+  protected readonly checks = signal<{ apple: { ok: boolean; detail: string }; google: { ok: boolean; detail: string } } | null>(null);
+
+  protected async test() {
+    this.testing.set(true);
+    try {
+      this.checks.set(await this.api.testSettings());
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      this.testing.set(false);
+    }
+  }
+
+  /** Días hasta el vencimiento del certificado de Apple. */
+  protected readonly expiry = computed(() => {
+    const exp = this.status()?.apple?.certExpires;
+    if (!exp) return null;
+    return { date: exp, days: Math.floor((Date.parse(exp) - Date.now()) / 86_400_000) };
+  });
 
   protected async saveApple() {
     const form = new FormData();
