@@ -203,6 +203,20 @@ api.post('/templates/:id/publish', async (c) => c.json(await publishTemplate(ctx
 
 api.get('/passes', async (c) => c.json(await store(c).listPasses()));
 
+/** Resumen de instalaciones a partir de la metadata de los pases (sin leer cada pase). */
+api.get('/stats', async (c) => {
+  const passes = await store(c).listPasses();
+  const apple = passes.filter((p) => (p.apple ?? 0) > 0);
+  const google = passes.filter((p) => p.google);
+  return c.json({
+    passes: passes.length,
+    active: passes.filter((p) => !p.voided).length,
+    installed: passes.filter((p) => (p.apple ?? 0) > 0 || p.google).length,
+    apple: { passes: apple.length, devices: apple.reduce((n, p) => n + (p.apple ?? 0), 0) },
+    google: { passes: google.length },
+  });
+});
+
 api.post('/passes', async (c) => {
   const s = store(c);
   const input = parsePassInput(await c.req.json());

@@ -1,4 +1,4 @@
-import type { AppleSettings, GoogleSettings, ImageMeta, NotificationRecord, Pass, Template } from '../types';
+import type { AppleSettings, GoogleSettings, ImageMeta, InstallEvent, NotificationRecord, Pass, PassInstalls, Template } from '../types';
 import { decryptJson, encryptJson } from './crypto';
 
 export interface TemplateSummary {
@@ -14,7 +14,15 @@ export interface PassSummary {
   holderName: string;
   updatedAt: string;
   voided: boolean;
+  /** Dispositivos de Apple registrados. */
+  apple?: number;
+  /** Guardado en Google Wallet. */
+  google?: boolean;
 }
+
+export const MAX_INSTALL_EVENTS = 20;
+
+export const emptyInstalls = (): PassInstalls => ({ appleDevices: 0, googleSaved: false, googleSaves: 0, googleDeletes: 0, events: [] });
 
 export interface NotificationSummary {
   id: string;
@@ -122,8 +130,41 @@ export class Store {
       holderName: p.holderName.slice(0, 200),
       updatedAt: p.updatedAt,
       voided: p.voided,
+      apple: p.installs?.appleDevices ?? 0,
+      google: p.installs?.googleSaved ?? false,
     };
     await this.kv.put(`pass:${p.serial}`, JSON.stringify(p), { metadata });
+  }
+
+  /**
+   * Registra una instalación o desinstalación. No toca updatedAt: Apple lo usa para saber si el pase cambió.
+   * `appleDevices` permite fijar el conteo real de dispositivos.
+   */
+  async recordInstall(serial: string, platform: InstallEvent['platform'], type: InstallEvent['type'], appleDevices?: number): Promise<Pass | null> {
+    const pass = await this.getPass(serial);
+    if (!pass) return null;
+    const i = { ...emptyInstalls(), ...pass.installs };
+    if (platform === 'apple') {
+      i.appleDevices = Math.max(0, appleDevices ?? i.appleDevices + (type === 'added' ? 1 : -1));
+    } else if (type === 'added') {
+      i.googleSaved = true;
+      i.googleSaves++;
+    } else {
+      i.googleSaved = false;
+      i.googleDeletes++;
+    }
+    i.events = [{ at: new Date().toISOString(), platform, type }, ...i.events].slice(0, MAX_INSTALL_EVENTS);
+    pass.installs = i;
+    await this.putPass(pass);
+    return pass;
+  }
+
+  /** Marca un nonce de callback como visto; devuelve false si ya se había procesado. */
+  async claimNonce(nonce: string): Promise<boolean> {
+    const key = `gnonce:${nonce.slice(0, 200)}`;
+    if ((await this.kv.get(key)) !== null) return false;
+    await this.kv.put(key, '1', { expirationTtl: 7 * 24 * 3600 });
+    return true;
   }
 
   // Notificaciones
@@ -162,9 +203,12 @@ export class Store {
     return !existed;
   }
 
-  async unregister(deviceId: string, passTypeId: string, serial: string): Promise<void> {
-    await this.kv.delete(`reg:${passTypeId}:${serial}:${deviceId}`);
+  async unregister(deviceId: string, passTypeId: string, serial: string): Promise<boolean> {
+    const key = `reg:${passTypeId}:${serial}:${deviceId}`;
+    const existed = (await this.kv.get(key)) !== null;
+    await this.kv.delete(key);
     await this.kv.delete(`device:${deviceId}:${passTypeId}:${serial}`);
+    return existed;
   }
 
   async devicesForPass(passTypeId: string, serial: string): Promise<{ deviceId: string; pushToken: string }[]> {

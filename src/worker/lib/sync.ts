@@ -48,7 +48,8 @@ async function googleUpsertObject(ctx: Ctx, token: string, gs: GoogleSettings, t
 }
 
 export async function googleUpsertClass(token: string, gs: GoogleSettings, t: Template, origin: string) {
-  await upsert(token, classResource(t.kind), buildClass(t, gs.issuerId, imageUrls(t, origin)));
+  const callbackUrl = origin.startsWith('https://') ? `${origin}/public/google/callback` : undefined;
+  await upsert(token, classResource(t.kind), buildClass(t, gs.issuerId, imageUrls(t, origin), callbackUrl));
 }
 
 export async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]): Promise<SyncResult['apple']> {
@@ -56,7 +57,12 @@ export async function applePush(ctx: Ctx, as: AppleSettings, serials: string[]):
   if (!devices.length) return { sent: 0, failed: 0 };
   const res = await pushUpdate(as, [...new Set(devices.map((d) => d.pushToken))], { mtls: ctx.env.APNS_CERT });
   await Promise.all(
-    devices.filter((d) => res.invalid.includes(d.pushToken)).map((d) => ctx.store.unregister(d.deviceId, as.passTypeId, d.serial)),
+    devices
+      .filter((d) => res.invalid.includes(d.pushToken))
+      .map(async (d) => {
+        // Token inválido: el pase se eliminó del dispositivo.
+        if (await ctx.store.unregister(d.deviceId, as.passTypeId, d.serial)) await ctx.store.recordInstall(d.serial, 'apple', 'removed');
+      }),
   );
   return { sent: res.sent, failed: res.failed, ...(res.errors.length ? { skipped: res.errors[0] } : {}) };
 }

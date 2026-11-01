@@ -138,6 +138,8 @@ describe('web service Apple', () => {
     expect((await call(reg, { method: 'POST', headers: { ...auth, authorization: 'ApplePass mal' }, body: '{"pushToken":"p"}' })).status).toBe(401);
     expect((await call(reg, { method: 'POST', headers: auth, body: '{"pushToken":"p"}' })).status).toBe(201);
     expect((await call(reg, { method: 'POST', headers: auth, body: '{"pushToken":"p"}' })).status).toBe(200);
+    expect((await env.PASSGEN.get<Pass>(`pass:${pass.serial}`, 'json'))!.installs).toMatchObject({ appleDevices: 1 });
+    expect(((await (await call('/api/passes')).json()) as { apple: number }[])[0].apple).toBe(1);
 
     const list = await call('/v1/devices/dev1/registrations/pass.test');
     const body = (await list.json()) as { serialNumbers: string[]; lastUpdated: string };
@@ -150,6 +152,7 @@ describe('web service Apple', () => {
     expect((await call(`/v1/passes/pass.test/${pass.serial}`, { headers: { ...auth, 'if-modified-since': lm } })).status).toBe(304);
 
     expect((await call(reg, { method: 'DELETE', headers: auth })).status).toBe(200);
+    expect((await env.PASSGEN.get<Pass>(`pass:${pass.serial}`, 'json'))!.installs).toMatchObject({ appleDevices: 0 });
     expect((await call('/v1/devices/dev1/registrations/pass.test')).status).toBe(204);
     expect((await call('/v1/log', { method: 'POST', body: '{"logs":["x"]}' })).status).toBe(200);
   });

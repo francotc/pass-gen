@@ -24,14 +24,17 @@ appleWs.post('/devices/:deviceId/registrations/:passTypeId/:serial', async (c) =
   if (!(await authorizedPass(c, passTypeId, serial))) return c.body(null, 401);
   const { pushToken } = await c.req.json<{ pushToken?: string }>().catch(() => ({ pushToken: undefined }));
   if (!pushToken) return c.body(null, 400);
-  const created = await store(c).register(deviceId, passTypeId, serial, pushToken);
+  const s = store(c);
+  const created = await s.register(deviceId, passTypeId, serial, pushToken);
+  if (created) await s.recordInstall(serial, 'apple', 'added');
   return c.body(null, created ? 201 : 200);
 });
 
 appleWs.delete('/devices/:deviceId/registrations/:passTypeId/:serial', async (c) => {
   const { deviceId, passTypeId, serial } = c.req.param();
   if (!(await authorizedPass(c, passTypeId, serial))) return c.body(null, 401);
-  await store(c).unregister(deviceId, passTypeId, serial);
+  const s = store(c);
+  if (await s.unregister(deviceId, passTypeId, serial)) await s.recordInstall(serial, 'apple', 'removed');
   return c.body(null, 200);
 });
 

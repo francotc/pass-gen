@@ -251,6 +251,25 @@ export interface Pass {
   message?: PassMessage;
   /** Email del titular (para la restricción de guardado de Google). */
   email?: string;
+  /** Instalaciones: registros de Apple y callbacks de Google. */
+  installs?: PassInstalls;
+}
+
+export interface InstallEvent {
+  at: string;
+  platform: 'apple' | 'google';
+  type: 'added' | 'removed';
+}
+
+export interface PassInstalls {
+  /** Dispositivos de Apple registrados ahora mismo. */
+  appleDevices: number;
+  /** El pase está guardado en Google Wallet (último callback). */
+  googleSaved: boolean;
+  googleSaves: number;
+  googleDeletes: number;
+  /** Últimos eventos, el más nuevo primero. */
+  events: InstallEvent[];
 }
 
 /** Mensaje ya renderizado para un pase (placeholders resueltos). */

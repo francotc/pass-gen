@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -109,6 +109,38 @@ import { PassPreview } from '../../shared/pass-preview';
             </div>
           </form>
 
+          <section hlmCard aria-labelledby="installs-title">
+            <div hlmCardHeader>
+              <h2 hlmCardTitle id="installs-title">Installs</h2>
+              <p hlmCardDescription>Apple reports device registrations; Google calls back when the pass is saved or removed (HTTPS only).</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-4 text-sm">
+              <dl class="grid grid-cols-3 gap-3">
+                <div><dt class="text-muted-foreground text-xs">Apple devices</dt><dd class="text-xl font-semibold tabular-nums">{{ installs().appleDevices }}</dd></div>
+                <div>
+                  <dt class="text-muted-foreground text-xs">Google Wallet</dt>
+                  <dd class="text-xl font-semibold">{{ installs().googleSaved ? 'Saved' : 'Not saved' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-muted-foreground text-xs">Google saves / removals</dt>
+                  <dd class="text-xl font-semibold tabular-nums">{{ installs().googleSaves }} / {{ installs().googleDeletes }}</dd>
+                </div>
+              </dl>
+              @if (installs().events.length) {
+                <ul class="border-border flex flex-col divide-y rounded-md border" aria-label="Recent install events">
+                  @for (e of installs().events; track $index) {
+                    <li class="flex justify-between gap-2 px-3 py-1.5">
+                      <span>{{ e.platform === 'apple' ? 'Apple Wallet' : 'Google Wallet' }} · {{ e.type === 'added' ? 'Added' : 'Removed' }}</span>
+                      <span class="text-muted-foreground">{{ e.at | date: 'dd.MM.yyyy HH:mm' }}</span>
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="text-muted-foreground">No install events yet.</p>
+              }
+            </div>
+          </section>
+
           @if (pass()!.message; as m) {
             <section hlmCard>
               <div hlmCardHeader>
@@ -199,6 +231,9 @@ export class PassDetail implements OnInit {
   readonly serial = input.required<string>();
 
   protected readonly pass = signal<Pass | null>(null);
+  protected readonly installs = computed(
+    () => this.pass()?.installs ?? { appleDevices: 0, googleSaved: false, googleSaves: 0, googleDeletes: 0, events: [] },
+  );
   protected readonly template = signal<Template | null>(null);
   protected readonly busy = signal(false);
   protected holderName = '';

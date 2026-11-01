@@ -86,6 +86,15 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
       </div>
     } @else {
       <div class="flex max-w-4xl flex-col gap-3">
+        <dl class="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Installation stats">
+          @for (s of stats(); track s.label) {
+            <div class="border-border flex flex-col gap-1 rounded-lg border p-3">
+              <dt class="text-muted-foreground text-xs">{{ s.label }}</dt>
+              <dd class="text-2xl font-semibold tabular-nums">{{ s.value }}</dd>
+              <dd class="text-muted-foreground text-xs">{{ s.hint }}</dd>
+            </div>
+          }
+        </dl>
         <div class="relative max-w-sm">
           <ng-icon name="lucideSearch" class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2" />
           <input hlmInput type="search" class="w-full pl-8" placeholder="Search by holder or serial" aria-label="Search passes" [(ngModel)]="query" />
@@ -98,6 +107,7 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
                 <th hlmTh>Serial</th>
                 <th hlmTh>Template</th>
                 <th hlmTh>Status</th>
+                <th hlmTh>Installed</th>
                 <th hlmTh>Updated</th>
               </tr>
             </thead>
@@ -116,11 +126,24 @@ import { Api, errorMessage, type PassSummary, type TemplateSummary } from '../..
                       <span hlmBadge variant="secondary">Active</span>
                     }
                   </td>
+                  <td hlmTd>
+                    <div class="flex flex-wrap gap-1">
+                      @if (p.apple) {
+                        <span hlmBadge variant="outline" [title]="p.apple + ' Apple device(s)'">Apple{{ p.apple > 1 ? ' ×' + p.apple : '' }}</span>
+                      }
+                      @if (p.google) {
+                        <span hlmBadge variant="outline">Google</span>
+                      }
+                      @if (!p.apple && !p.google) {
+                        <span class="text-muted-foreground">—</span>
+                      }
+                    </div>
+                  </td>
                   <td hlmTd class="text-muted-foreground">{{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</td>
                 </tr>
               } @empty {
                 <tr hlmTr>
-                  <td hlmTd colspan="5" class="text-muted-foreground text-center">No results for “{{ query() }}”</td>
+                  <td hlmTd colspan="6" class="text-muted-foreground text-center">No results for “{{ query() }}”</td>
                 </tr>
               }
             </tbody>
@@ -139,6 +162,20 @@ export class PassList implements OnInit {
   protected readonly otpValue = signal('');
   protected readonly otpResult = signal<OtpVerifyResult | null>(null);
   protected readonly verifying = signal(false);
+
+  protected readonly stats = computed(() => {
+    const ps = this.passes();
+    const pct = (n: number) => (ps.length ? `${Math.round((n / ps.length) * 100)}% of issued` : '');
+    const apple = ps.filter((p) => (p.apple ?? 0) > 0);
+    const google = ps.filter((p) => p.google).length;
+    const installed = ps.filter((p) => (p.apple ?? 0) > 0 || p.google).length;
+    return [
+      { label: 'Issued', value: ps.length, hint: `${ps.filter((p) => !p.voided).length} active` },
+      { label: 'Installed', value: installed, hint: pct(installed) },
+      { label: 'Apple Wallet', value: apple.length, hint: `${apple.reduce((n, p) => n + (p.apple ?? 0), 0)} device(s)` },
+      { label: 'Google Wallet', value: google, hint: pct(google) },
+    ];
+  });
 
   protected readonly filtered = computed(() => {
     const q = this.query().trim().toLowerCase();

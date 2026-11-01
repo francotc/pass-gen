@@ -2,7 +2,8 @@ import { passOtp } from './lib/otp';
 import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import type { AppEnv, Env } from './env';
-import { saveLink } from './lib/google/wallet';
+import { googleRootKeys, unsealGoogleCallback } from './lib/google/callback';
+import { objectId, saveLink } from './lib/google/wallet';
 import { detectDevice, renderHolderPage } from './lib/holder-page';
 import { rotateAppleOtp } from './lib/rotate';
 import { buildPkpass } from './lib/apple/pkpass';
@@ -75,6 +76,36 @@ app.get('/public/p/:serial/:token', async (c) => {
     'x-robots-tag': 'noindex',
   });
 });
+
+/**
+ * Callback de Google Wallet (callbackOptions de la clase): avisa cuando un titular guarda o elimina el pase.
+ * El mensaje viene firmado (ECv2SigningOnly); sin firma válida se descarta.
+ */
+app.post('/public/google/callback', async (c) => {
+  const s = store(c);
+  const google = await s.getGoogleSettings().catch(() => null);
+  if (!google) return c.body(null, 404);
+  let msg;
+  try {
+    msg = await unsealGoogleCallback(await c.req.text(), google.issuerId, await googleRootKeys());
+  } catch (e) {
+    console.warn('[google-callback] rejected:', (e as Error).message);
+    return c.body(null, 400);
+  }
+  // Google puede reintentar: procesar cada nonce una sola vez.
+  if (!(await s.claimNonce(msg.nonce))) return c.body(null, 200);
+  const serial = await serialForObject(s, google.issuerId, msg.objectId);
+  if (serial) await s.recordInstall(serial, 'google', msg.eventType === 'save' ? 'added' : 'removed');
+  return c.body(null, 200);
+});
+
+/** El objectId es `{issuerId}.{serial saneado}`; si el saneo cambió el serial, se busca entre los pases. */
+async function serialForObject(s: ReturnType<typeof store>, issuerId: string, id: string): Promise<string | undefined> {
+  if (!id.startsWith(`${issuerId}.`)) return undefined;
+  const direct = await s.getPass(id.slice(issuerId.length + 1));
+  if (direct && objectId(issuerId, direct.serial) === id) return direct.serial;
+  return (await s.listPasses()).find((p) => objectId(issuerId, p.serial) === id)?.serial;
+}
 
 // Todo lo demás lo sirve Static Assets (SPA).
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw));

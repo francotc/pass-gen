@@ -63,7 +63,7 @@ export interface ImageUrls {
   byId?: (id: string) => string | undefined;
 }
 
-export function buildClass(t: Template, issuerId: string, images: ImageUrls): Record<string, unknown> {
+export function buildClass(t: Template, issuerId: string, images: ImageUrls, callbackUrl?: string): Record<string, unknown> {
   const smartTap = t.nfc?.enabled ? { enableSmartTap: true, redemptionIssuers: [issuerId] } : {};
   // merchantLocations reemplaza al campo `locations` (deprecado, ya no notifica). El radio lo define Google.
   const points = t.locations?.points ?? [];
@@ -76,7 +76,9 @@ export function buildClass(t: Template, issuerId: string, images: ImageUrls): Re
     ...(sec?.unlockToView ? { viewUnlockRequirement: 'UNLOCK_REQUIRED_TO_VIEW' } : {}),
     ...(sec?.deviceSharing ? { multipleDevicesAndHoldersAllowedStatus: sec.deviceSharing } : {}),
   };
-  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations, ...imageModules, ...security };
+  // Google avisa cada vez que alguien guarda o elimina un pase de esta clase.
+  const callback = callbackUrl ? { callbackOptions: { url: callbackUrl } } : {};
+  const base = { id: classId(issuerId, t.id), ...smartTap, ...merchantLocations, ...imageModules, ...security, ...callback };
   if (t.kind === 'generic') return base;
   return JSON.parse(
     JSON.stringify({

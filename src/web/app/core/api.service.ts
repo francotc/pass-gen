@@ -27,6 +27,10 @@ export interface PassSummary {
   holderName: string;
   updatedAt: string;
   voided: boolean;
+  /** Dispositivos de Apple registrados. */
+  apple?: number;
+  /** Guardado en Google Wallet. */
+  google?: boolean;
 }
 
 export interface NotificationSummary {
