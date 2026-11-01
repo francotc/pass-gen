@@ -1,8 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowLeft } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
@@ -11,22 +9,17 @@ import { HlmLabelImports } from '@spartan-ng/helm/label';
 import type { Template } from '../../../../worker/types';
 import { Api, errorMessage, type TemplateSummary } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
-import { placeholderKeys } from '../../core/template-utils';
+import { keyLabel, placeholderKeys } from '../../core/template-utils';
+import { PageHeader } from '../../shared/page-header';
 import { PassPreview } from '../../shared/pass-preview';
 
 @Component({
   selector: 'app-pass-new',
-  imports: [FormsModule, RouterLink, NgIcon, PassPreview, HlmButtonImports, HlmCardImports, HlmInputImports, HlmLabelImports],
-  providers: [provideIcons({ lucideArrowLeft })],
+  imports: [FormsModule, RouterLink, PageHeader, PassPreview, HlmButtonImports, HlmCardImports, HlmInputImports, HlmLabelImports],
   template: `
-    <header class="mb-6 flex flex-col gap-1">
-      <a routerLink="/passes" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-        <ng-icon name="lucideArrowLeft" /> Passes
-      </a>
-      <h1 class="text-2xl font-semibold tracking-tight">Issue pass</h1>
-    </header>
+    <app-page-header title="Issue pass" description="Fill in the holder details; the preview updates as you type." [back]="{ link: '/passes', label: 'Passes' }" />
 
-    <div class="grid gap-8 xl:grid-cols-[minmax(0,28rem)_minmax(0,40rem)]">
+    <div class="grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
       <form hlmCard (ngSubmit)="issue()">
         <div hlmCardContent class="flex flex-col gap-4">
           <div class="flex flex-col gap-2">
@@ -54,20 +47,28 @@ import { PassPreview } from '../../shared/pass-preview';
           </div>
           @for (k of keys(); track k) {
             <div class="flex flex-col gap-2">
-              <label hlmLabel [for]="'data-' + k">{{ k }}</label>
+              <label hlmLabel [for]="'data-' + k">{{ label(k) }}</label>
               <input hlmInput [id]="'data-' + k" [name]="'data-' + k" [(ngModel)]="data[k]" />
+              <p class="text-muted-foreground font-mono text-[12px]">{{ '{{' + k + '}}' }}</p>
             </div>
           }
-          <div>
-            <button hlmBtn type="submit" [disabled]="busy() || !template() || !holderName.trim()">
+          <div class="flex flex-col gap-2">
+            <button hlmBtn type="submit" class="w-fit" [disabled]="busy() || !template() || !holderName.trim()" [attr.aria-describedby]="missing() ? 'issue-hint' : null">
               {{ busy() ? 'Issuing…' : 'Issue pass' }}
             </button>
+            @if (missing(); as m) {
+              <p id="issue-hint" class="text-muted-foreground text-[13px] leading-snug">{{ m }}</p>
+            }
           </div>
         </div>
       </form>
 
       @if (template(); as t) {
-        <app-pass-preview [template]="t" [holderName]="holderName" [data]="data" />
+        <app-pass-preview [template]="t" [holderName]="holderName || 'Holder name'" [data]="data" />
+      } @else {
+        <div class="border-border text-muted-foreground flex min-h-64 items-center justify-center rounded-xl border border-dashed p-8 text-center text-sm">
+          Pick a template to preview the pass.
+        </div>
       }
     </div>
   `,
@@ -84,6 +85,17 @@ export class PassNew implements OnInit {
   protected holderName = '';
   protected email = '';
   protected data: Record<string, string> = {};
+
+  protected label(k: string) {
+    const t = this.template();
+    return t ? keyLabel(t, k) : k;
+  }
+
+  protected missing() {
+    if (!this.template()) return 'Choose a template to continue.';
+    if (!this.holderName.trim()) return 'Enter the holder name to continue.';
+    return '';
+  }
 
   protected keys() {
     const t = this.template();
@@ -122,7 +134,7 @@ export class PassNew implements OnInit {
       const msg = syncMessage(res.sync);
       if (msg.ok) toast.success('Pass issued', { description: msg.text });
       else toast.warning('Pass issued with warnings', { description: msg.text });
-      await this.router.navigate(['/passes', res.pass.serial]);
+      await this.router.navigate(['/passes', res.pass.serial], { queryParams: { issued: 1 } });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

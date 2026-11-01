@@ -1,11 +1,13 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideArrowLeft,
+  lucideBan,
   lucideBell,
+  lucideCircleCheck,
+  lucideRotateCcw,
   lucideCopy,
   lucideDownload,
   lucideExternalLink,
@@ -20,10 +22,12 @@ import { HlmCardImports } from '@spartan-ng/helm/card';
 import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmLabelImports } from '@spartan-ng/helm/label';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
-import type { Pass, Template } from '../../../../worker/types';
+import type { Pass, SettingsStatus, Template } from '../../../../worker/types';
 import { Api, errorMessage, type GoogleStatus } from '../../core/api.service';
 import { syncMessage } from '../../core/sync-message';
-import { placeholderKeys } from '../../core/template-utils';
+import { keyLabel, placeholderKeys } from '../../core/template-utils';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { PageHeader } from '../../shared/page-header';
 import { PassPreview } from '../../shared/pass-preview';
 
 @Component({
@@ -33,6 +37,8 @@ import { PassPreview } from '../../shared/pass-preview';
     RouterLink,
     DatePipe,
     NgIcon,
+    PageHeader,
+    ConfirmDialog,
     PassPreview,
     HlmBadgeImports,
     HlmButtonImports,
@@ -41,89 +47,187 @@ import { PassPreview } from '../../shared/pass-preview';
     HlmLabelImports,
     HlmSwitchImports,
   ],
-  providers: [provideIcons({ lucideArrowLeft, lucideBell, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave, lucideSearch })],
+  providers: [provideIcons({ lucideBan, lucideCircleCheck, lucideRotateCcw, lucideBell, lucideDownload, lucideCopy, lucideExternalLink, lucideRefreshCw, lucideSave, lucideSearch })],
   template: `
-    <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div class="flex flex-col gap-1">
-        <a routerLink="/passes" class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm">
-          <ng-icon name="lucideArrowLeft" /> Passes
-        </a>
-        <h1 class="flex flex-wrap items-center gap-2 text-2xl font-semibold tracking-tight">
-          {{ pass()?.holderName ?? 'Pass' }}
-          @if (pass()?.voided) {
-            <span hlmBadge variant="destructive">Voided</span>
+    <app-page-header [title]="pass()?.holderName ?? 'Pass'" [back]="{ link: '/passes', label: 'Passes' }">
+      @if (pass(); as p) {
+        <p meta class="text-muted-foreground flex flex-wrap items-center gap-2 font-mono text-xs">
+          @if (p.voided) {
+            <span hlmBadge variant="destructive" class="font-sans">Voided</span>
           }
-        </h1>
-        @if (pass(); as p) {
-          <p class="text-muted-foreground font-mono text-xs">{{ p.serial }} · updated {{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}</p>
+          {{ p.serial }} · updated {{ p.updatedAt | date: 'dd.MM.yyyy HH:mm' }}
+        </p>
+      }
+      @if (pass(); as p) {
+        <a hlmBtn variant="outline" routerLink="/notifications" [queryParams]="{ pass: p.serial }"><ng-icon name="lucideBell" /> Send notification</a>
+      }
+      @if (pass(); as p) {
+        @if (p.voided) {
+          <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="setVoided(false)"><ng-icon name="lucideRotateCcw" /> Reactivate</button>
+        } @else {
+          <button hlmBtn variant="destructive" type="button" [disabled]="busy()" (click)="voidConfirm.open()"><ng-icon name="lucideBan" /> Void pass</button>
         }
-      </div>
-    </header>
+      }
+    </app-page-header>
+    <app-confirm
+      #voidConfirm
+      title="Void this pass?"
+      description="It shows as invalid in Apple Wallet and Google Wallet and its code stops working. You can reactivate it later."
+      confirmLabel="Void pass"
+      [destructive]="true"
+      (confirmed)="setVoided(true)"
+    />
 
     @if (pass() && template()) {
-      <div class="grid gap-8 xl:grid-cols-[minmax(0,28rem)_minmax(0,40rem)]">
-        <div class="flex flex-col gap-6">
-          <form hlmCard (ngSubmit)="save()">
+      @if (justIssued()) {
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4" role="status">
+          <div class="flex items-center gap-2 text-sm">
+            <ng-icon name="lucideCircleCheck" class="text-emerald-600 dark:text-emerald-400" />
+            <span><span class="font-medium">Pass issued.</span> Send the holder link so they can add it to their wallet.</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <a hlmBtn variant="outline" size="sm" [href]="api.holderPageUrl(pass()!)" target="_blank" rel="noopener"><ng-icon name="lucideExternalLink" /> Open</a>
+            <button hlmBtn size="sm" type="button" (click)="copy(api.holderPageUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy holder link</button>
+          </div>
+        </div>
+      }
+
+      <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,40rem)]">
+        <div class="flex min-w-0 flex-col gap-6">
+          <section hlmCard aria-labelledby="deliver-title">
             <div hlmCardHeader>
-              <h2 hlmCardTitle>Pass details</h2>
-              <p hlmCardDescription>Saving updates Google Wallet and notifies every iPhone that has the pass installed.</p>
+              <h2 hlmCardTitle id="deliver-title">Deliver to holder</h2>
+              <p hlmCardDescription>One link for both wallets: it shows the right button on each phone and a QR code on desktop.</p>
+            </div>
+            <div hlmCardContent class="flex flex-col gap-5">
+              <div class="flex flex-wrap gap-2">
+                <button hlmBtn type="button" (click)="copy(api.holderPageUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy holder link</button>
+                <a hlmBtn variant="outline" [href]="api.holderPageUrl(pass()!)" target="_blank" rel="noopener"><ng-icon name="lucideExternalLink" /> Open holder page</a>
+              </div>
+              <div class="border-border flex flex-col gap-2 border-t pt-4">
+                <span class="text-sm font-medium">Apple Wallet</span>
+                @if (settings() && !settings()!.apple) {
+                  <p class="text-muted-foreground text-[13px] leading-snug">Apple Wallet isn't set up yet. <a routerLink="/settings" class="text-foreground underline">Add your certificate in Settings</a>.</p>
+                } @else {
+                  <div class="flex flex-wrap gap-2">
+                    <a hlmBtn variant="outline" size="sm" [href]="api.pkpassUrl(pass()!.serial)" download><ng-icon name="lucideDownload" /> Download .pkpass</a>
+                    <button hlmBtn variant="outline" size="sm" type="button" (click)="copy(api.publicPkpassUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy download link</button>
+                  </div>
+                }
+              </div>
+              <div class="border-border flex flex-col gap-2 border-t pt-4">
+                <span class="flex items-center gap-2 text-sm font-medium">
+                  Google Wallet
+                  @if (pass()!.google.synced) {
+                    <span hlmBadge variant="secondary">Synced</span>
+                  } @else if (pass()!.google.error) {
+                    <span hlmBadge variant="destructive">Error</span>
+                  } @else if (settings()?.google) {
+                    <span hlmBadge variant="outline">Not synced</span>
+                  }
+                </span>
+                @if (settings() && !settings()!.google) {
+                  <p class="text-muted-foreground text-[13px] leading-snug">Google Wallet isn't set up yet. <a routerLink="/settings" class="text-foreground underline">Add your issuer in Settings</a>.</p>
+                } @else {
+                  @if (pass()!.google.error) {
+                    <p class="text-destructive text-[13px] leading-snug">{{ pass()!.google.error }}</p>
+                  } @else if (!pass()!.google.synced) {
+                    <p class="text-muted-foreground text-[13px] leading-snug">Google doesn't have this pass yet. Use “Retry sync” below.</p>
+                  }
+                  <div class="flex flex-wrap gap-2">
+                    @if (pass()!.google.synced) {
+                      <button hlmBtn variant="outline" size="sm" type="button" (click)="openGoogle()"><ng-icon name="lucideExternalLink" /> Open save link</button>
+                      <button hlmBtn variant="outline" size="sm" type="button" (click)="copyGoogle()"><ng-icon name="lucideCopy" /> Copy save link</button>
+                    }
+                    <button hlmBtn variant="ghost" size="sm" type="button" [disabled]="checking()" (click)="checkGoogle()"><ng-icon name="lucideSearch" /> {{ checking() ? 'Checking…' : 'Check what Google has' }}</button>
+                  </div>
+                  @if (googleStatus(); as g) {
+                    <div class="bg-muted flex flex-col gap-1 rounded-md p-3 text-[13px]" role="status">
+                      @if (!g.exists) {
+                        <span>Google has no object for this pass yet. Use “Retry sync”.</span>
+                      } @else {
+                        <span>State: {{ g.state }} · Saved by a user: {{ g.hasUsers ? 'yes' : 'no' }}</span>
+                        @if (g.rotatingBarcode; as rb) {
+                          <span>Rotating code: {{ rb.type }} · every {{ rb.periodSeconds }} s · {{ rb.valuePattern }}</span>
+                        } @else if (g.otpEnabledInTemplate) {
+                          <span class="text-destructive">OTP is on in the template but Google still has a static code. Use “Retry sync”.</span>
+                        }
+                        @if (g.barcode; as b) {
+                          <span>Static code: {{ b.type }} · {{ b.value }}</span>
+                        }
+                        @if (g.smartTap) {
+                          <span>Smart Tap (NFC) is on: Google hides the code behind “Show code”.</span>
+                        }
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+          </section>
+
+          <form hlmCard (ngSubmit)="save()" aria-labelledby="details-title">
+            <div hlmCardHeader>
+              <h2 hlmCardTitle id="details-title">Pass details</h2>
+              <p hlmCardDescription>Saving updates Google Wallet and every iPhone that has the pass installed.</p>
             </div>
             <div hlmCardContent class="flex flex-col gap-4">
-              <div class="flex flex-col gap-2">
-                <label hlmLabel for="holder">Holder name</label>
-                <input hlmInput id="holder" name="holder" required [(ngModel)]="holderName" />
-              </div>
-              <div class="flex flex-col gap-2">
-                <label hlmLabel for="email">Holder email</label>
-                <input hlmInput id="email" name="email" type="email" [(ngModel)]="email" />
-              </div>
-              @for (k of keys(); track k) {
+              <div class="grid gap-4 sm:grid-cols-2">
                 <div class="flex flex-col gap-2">
-                  <label hlmLabel [for]="'data-' + k">{{ k }}</label>
-                  <input hlmInput [id]="'data-' + k" [name]="'data-' + k" [(ngModel)]="data[k]" />
+                  <label hlmLabel for="holder">Holder name</label>
+                  <input hlmInput id="holder" name="holder" required [(ngModel)]="holderName" />
                 </div>
-              }
+                <div class="flex flex-col gap-2">
+                  <label hlmLabel for="email">Holder email</label>
+                  <input hlmInput id="email" name="email" type="email" placeholder="Optional" [(ngModel)]="email" />
+                </div>
+                @for (k of keys(); track k) {
+                  <div class="flex flex-col gap-2">
+                    <label hlmLabel [for]="'data-' + k">{{ label(k) }}</label>
+                    <input hlmInput [id]="'data-' + k" [name]="'data-' + k" [(ngModel)]="data[k]" />
+                  </div>
+                }
+              </div>
               @if (template()!.kind === 'loyalty') {
                 <label class="flex items-center justify-between gap-3 text-sm" for="notify">
                   <span>
-                    <span class="font-medium">Notify Google holders</span>
+                    <span class="font-medium">Notify Google holders of this change</span>
                     <span class="text-muted-foreground block text-[13px] leading-snug">
-                      Push when the balance changes (max 3 per pass every 24 h). Apple notifies fields that have a change message.
+                      Sends a push when the balance changes (max 3 per pass a day). iPhones are notified for fields with a change message.
                     </span>
                   </span>
                   <hlm-switch inputId="notify" name="notify" [(ngModel)]="notify" />
                 </label>
               }
-                            <label class="flex items-center justify-between gap-3 text-sm" for="voided">
-                <span>
-                  <span class="font-medium">Void pass</span>
-                  <span class="text-muted-foreground block text-[13px] leading-snug">Marks it as invalid in both wallets.</span>
-                </span>
-                <hlm-switch inputId="voided" name="voided" [(ngModel)]="voided" />
-              </label>
             </div>
             <div hlmCardFooter class="flex flex-wrap gap-2">
               <button hlmBtn type="submit" [disabled]="busy()"><ng-icon name="lucideSave" /> {{ busy() ? 'Saving…' : 'Save and update' }}</button>
               <button hlmBtn variant="outline" type="button" [disabled]="busy()" (click)="resync()"><ng-icon name="lucideRefreshCw" /> Retry sync</button>
-              <a hlmBtn variant="ghost" routerLink="/notifications" [queryParams]="{ pass: pass()!.serial }"><ng-icon name="lucideBell" /> Send notification</a>
             </div>
           </form>
+        </div>
+
+        <div class="flex min-w-0 flex-col gap-6">
+          <app-pass-preview [template]="template()!" [holderName]="holderName" [data]="data" [serial]="pass()!.serial" />
 
           <section hlmCard aria-labelledby="installs-title">
             <div hlmCardHeader>
               <h2 hlmCardTitle id="installs-title">Installs</h2>
-              <p hlmCardDescription>Apple reports device registrations; Google calls back when the pass is saved or removed (HTTPS only).</p>
+              <p hlmCardDescription>iPhones report when they add or remove the pass; Google reports saves and removals (published site only).</p>
             </div>
             <div hlmCardContent class="flex flex-col gap-4 text-sm">
-              <dl class="grid grid-cols-3 gap-3">
-                <div><dt class="text-muted-foreground text-[13px] leading-snug">Apple devices</dt><dd class="text-xl font-semibold tabular-nums">{{ installs().appleDevices }}</dd></div>
-                <div>
-                  <dt class="text-muted-foreground text-[13px] leading-snug">Google Wallet</dt>
-                  <dd class="text-xl font-semibold">{{ installs().googleSaved ? 'Saved' : 'Not saved' }}</dd>
+              <dl class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="flex items-baseline justify-between gap-2 sm:flex-col sm:justify-start">
+                  <dt class="text-muted-foreground text-[13px]">Apple devices</dt>
+                  <dd class="text-lg font-semibold tabular-nums">{{ installs().appleDevices }}</dd>
                 </div>
-                <div>
-                  <dt class="text-muted-foreground text-[13px] leading-snug">Google saves / removals</dt>
-                  <dd class="text-xl font-semibold tabular-nums">{{ installs().googleSaves }} / {{ installs().googleDeletes }}</dd>
+                <div class="flex items-baseline justify-between gap-2 sm:flex-col sm:justify-start">
+                  <dt class="text-muted-foreground text-[13px]">Google Wallet</dt>
+                  <dd class="text-lg font-semibold whitespace-nowrap">{{ installs().googleSaved ? 'Saved' : 'Not saved' }}</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-2 sm:flex-col sm:justify-start">
+                  <dt class="text-muted-foreground text-[13px]">Google saves / removals</dt>
+                  <dd class="text-lg font-semibold tabular-nums">{{ installs().googleSaves }} / {{ installs().googleDeletes }}</dd>
                 </div>
               </dl>
               @if (installs().events.length) {
@@ -153,72 +257,7 @@ import { PassPreview } from '../../shared/pass-preview';
               </div>
             </section>
           }
-
-          <section hlmCard>
-            <div hlmCardHeader>
-              <h2 hlmCardTitle>Deliver to holder</h2>
-            </div>
-            <div hlmCardContent class="flex flex-col gap-5">
-              <div class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Holder page</span>
-                <p class="text-muted-foreground text-[13px] leading-snug">One link for both wallets: shows the right button on each phone and a QR code on desktop.</p>
-                <div class="flex flex-wrap gap-2">
-                  <a hlmBtn variant="outline" [href]="api.holderPageUrl(pass()!)" target="_blank" rel="noopener"><ng-icon name="lucideExternalLink" /> Open</a>
-                  <button hlmBtn type="button" (click)="copy(api.holderPageUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy holder link</button>
-                </div>
-              </div>
-              <div class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Apple Wallet</span>
-                <div class="flex flex-wrap gap-2">
-                  <a hlmBtn variant="outline" [href]="api.pkpassUrl(pass()!.serial)" download><ng-icon name="lucideDownload" /> Download .pkpass</a>
-                  <button hlmBtn variant="outline" type="button" (click)="copy(api.publicPkpassUrl(pass()!))"><ng-icon name="lucideCopy" /> Copy public link</button>
-                </div>
-              </div>
-              <div class="flex flex-col gap-2">
-                <span class="flex items-center gap-2 text-sm font-medium">
-                  Google Wallet
-                  @if (pass()!.google.synced) {
-                    <span hlmBadge variant="secondary">Synced</span>
-                  } @else if (pass()!.google.error) {
-                    <span hlmBadge variant="destructive">Error</span>
-                  } @else {
-                    <span hlmBadge variant="outline">Pending</span>
-                  }
-                </span>
-                @if (pass()!.google.error) {
-                  <p class="text-destructive text-xs">{{ pass()!.google.error }}</p>
-                }
-                <div class="flex flex-wrap gap-2">
-                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="openGoogle()"><ng-icon name="lucideExternalLink" /> Open link</button>
-                  <button hlmBtn variant="outline" type="button" [disabled]="!pass()!.google.synced" (click)="copyGoogle()"><ng-icon name="lucideCopy" /> Copy link</button>
-                  <button hlmBtn variant="ghost" type="button" [disabled]="checking()" (click)="checkGoogle()"><ng-icon name="lucideSearch" /> Check Google pass</button>
-                </div>
-                @if (googleStatus(); as g) {
-                  <div class="bg-muted flex flex-col gap-1 rounded-md p-3 text-xs" role="status">
-                    @if (!g.exists) {
-                      <span>Google has no object for this pass yet. Use “Retry sync”.</span>
-                    } @else {
-                      <span>State: {{ g.state }} · Saved by a user: {{ g.hasUsers ? 'yes' : 'no' }}</span>
-                      @if (g.rotatingBarcode; as rb) {
-                        <span>Rotating code: {{ rb.type }} · every {{ rb.periodSeconds }} s · {{ rb.valuePattern }}</span>
-                      } @else if (g.otpEnabledInTemplate) {
-                        <span class="text-destructive">OTP is on in the template but Google still has a static code. Use “Retry sync”.</span>
-                      }
-                      @if (g.barcode; as b) {
-                        <span>Static code: {{ b.type }} · {{ b.value }}</span>
-                      }
-                      @if (g.smartTap) {
-                        <span>Smart Tap (NFC) is on: Google hides the code behind “Show code”.</span>
-                      }
-                    }
-                  </div>
-                }
-              </div>
-            </div>
-          </section>
         </div>
-
-        <app-pass-preview [template]="template()!" [holderName]="holderName" [data]="data" [serial]="pass()!.serial" />
       </div>
     }
   `,
@@ -226,6 +265,8 @@ import { PassPreview } from '../../shared/pass-preview';
 export class PassDetail implements OnInit {
   protected readonly api = inject(Api);
   private readonly router = inject(Router);
+  protected readonly justIssued = signal(inject(ActivatedRoute).snapshot.queryParamMap.has('issued'));
+  protected readonly settings = signal<SettingsStatus | null>(null);
 
   /** Route param. */
   readonly serial = input.required<string>();
@@ -239,8 +280,12 @@ export class PassDetail implements OnInit {
   protected holderName = '';
   protected email = '';
   protected data: Record<string, string> = {};
-  protected voided = false;
   protected notify = false;
+
+  protected label(k: string) {
+    const t = this.template();
+    return t ? keyLabel(t, k) : k;
+  }
 
   protected keys() {
     const t = this.template();
@@ -254,6 +299,7 @@ export class PassDetail implements OnInit {
       const p = await this.api.pass(this.serial());
       this.apply(p);
       this.template.set(await this.api.template(p.templateId));
+      this.api.settings().then((st) => this.settings.set(st), () => undefined);
     } catch (e) {
       toast.error(errorMessage(e));
       await this.router.navigate(['/passes']);
@@ -265,7 +311,6 @@ export class PassDetail implements OnInit {
     this.holderName = p.holderName;
     this.email = p.email ?? '';
     this.data = { ...p.data };
-    this.voided = p.voided;
   }
 
   protected async save() {
@@ -275,13 +320,25 @@ export class PassDetail implements OnInit {
         holderName: this.holderName,
         email: this.email.trim(),
         data: this.data,
-        voided: this.voided,
         notify: this.notify,
       });
       this.apply(res.pass);
       const msg = syncMessage(res.sync);
       if (msg.ok) toast.success('Pass updated', { description: msg.text });
       else toast.warning('Pass saved with warnings', { description: msg.text });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  protected async setVoided(voided: boolean) {
+    this.busy.set(true);
+    try {
+      const res = await this.api.updatePass(this.serial(), { voided });
+      this.apply(res.pass);
+      toast.success(voided ? 'Pass voided' : 'Pass reactivated', { description: syncMessage(res.sync).text });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

@@ -71,3 +71,24 @@ export function toInput(t: TemplateInput & { id?: string; createdAt?: string; up
   out.localization ??= { language: 'en', translations: {} };
   return out;
 }
+
+/** "NEXT REWARD" → "Next reward"; "nextReward"/"next_reward" → "Next reward". */
+export function humanize(s: string): string {
+  const words = s
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words ? words[0].toUpperCase() + words.slice(1) : s;
+}
+
+/** Nombre legible para una clave de datos: el label del campo que la usa, o la clave humanizada. */
+export function keyLabel(t: TemplateInput, key: string): string {
+  const re = new RegExp(`\\{\\{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\}\\}`);
+  for (const s of FIELD_SECTIONS) {
+    const f = t[s].find((x) => re.test(x.value) && humanize(x.label));
+    if (f) return humanize(f.label);
+  }
+  return humanize(key);
+}
