@@ -45,6 +45,13 @@ import { PassPreview } from '../../shared/pass-preview';
             <label hlmLabel for="holder">Holder name</label>
             <input hlmInput id="holder" name="holder" required autocomplete="off" [(ngModel)]="holderName" />
           </div>
+          <div class="flex flex-col gap-2">
+            <label hlmLabel for="email">Holder email (optional)</label>
+            <input hlmInput id="email" name="email" type="email" autocomplete="off" [(ngModel)]="email" />
+            @if (template()?.security?.restrictToEmail) {
+              <p class="text-muted-foreground text-xs">This template only lets this email save the pass in Google Wallet.</p>
+            }
+          </div>
           @for (k of keys(); track k) {
             <div class="flex flex-col gap-2">
               <label hlmLabel [for]="'data-' + k">{{ k }}</label>
@@ -75,6 +82,7 @@ export class PassNew implements OnInit {
   protected readonly template = signal<Template | null>(null);
   protected readonly busy = signal(false);
   protected holderName = '';
+  protected email = '';
   protected data: Record<string, string> = {};
 
   protected keys() {
@@ -110,7 +118,7 @@ export class PassNew implements OnInit {
     try {
       const keys = new Set(this.keys());
       const data = Object.fromEntries(Object.entries(this.data).filter(([k]) => keys.has(k)));
-      const res = await this.api.issuePass({ templateId: t.id, holderName: this.holderName.trim(), data });
+      const res = await this.api.issuePass({ templateId: t.id, holderName: this.holderName.trim(), data, email: this.email.trim() || undefined });
       const msg = syncMessage(res.sync);
       if (msg.ok) toast.success('Pass issued', { description: msg.text });
       else toast.warning('Pass issued with warnings', { description: msg.text });

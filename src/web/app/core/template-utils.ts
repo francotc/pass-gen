@@ -53,7 +53,7 @@ export function newTemplate(): TemplateInput {
     background: { poster: false },
     otp: { enabled: false, googlePeriodSeconds: 30 },
     brand: { businessName: '[Your business]', programName: 'Stamp card', color: '#171717', overrides: [] },
-    security: { googleShimmer: false, unlockToView: false, screenshots: true, noSharing: false, noStripShine: false },
+    security: { googleShimmer: false, unlockToView: false, screenshots: true, restrictToEmail: false, noSharing: false, noStripShine: false },
   };
 }
 
@@ -66,6 +66,6 @@ export function toInput(t: TemplateInput & { id?: string; createdAt?: string; up
   out.actions ??= { links: [], modules: [], featured: [], appStoreIds: [] };
   out.background ??= { poster: false };
   out.otp ??= { enabled: false, googlePeriodSeconds: 30 };
-  out.security ??= { googleShimmer: false, unlockToView: false, screenshots: true, noSharing: false, noStripShine: false };
+  out.security ??= { googleShimmer: false, unlockToView: false, screenshots: true, restrictToEmail: false, noSharing: false, noStripShine: false };
   return out;
 }

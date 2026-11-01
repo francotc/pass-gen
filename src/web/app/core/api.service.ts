@@ -127,7 +127,7 @@ export class Api {
   }
   updatePass(
     serial: string,
-    body: { holderName?: string; data?: Record<string, string>; voided?: boolean; notify?: boolean },
+    body: { holderName?: string; data?: Record<string, string>; voided?: boolean; notify?: boolean; email?: string },
   ) {
     return firstValueFrom(this.http.put<PassWithSync>(`/api/passes/${encodeURIComponent(serial)}`, body));
   }

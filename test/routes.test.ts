@@ -222,7 +222,7 @@ describe('OTP', () => {
     const bad = await json('/api/templates', 'POST', { ...templateInput, security: { deviceSharing: 'EVERYONE' } });
     expect(await bad.json()).toMatchObject({ error: 'Invalid device sharing option' });
     const ok = (await (await json('/api/templates', 'POST', { ...templateInput, security: { googleShimmer: true } })).json()) as Template;
-    expect(ok.security).toEqual({ googleShimmer: true, unlockToView: false, screenshots: true, noSharing: false, noStripShine: false });
+    expect(ok.security).toEqual({ googleShimmer: true, unlockToView: false, screenshots: true, restrictToEmail: false, noSharing: false, noStripShine: false });
   });
 
   it('valida el período del OTP', async () => {

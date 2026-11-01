@@ -121,13 +121,23 @@ export class ImageStudio {
     if (!crop || !img) return;
     this.busy.set(true);
     try {
-      const [square, icon, wide] = await Promise.all([crop.export(660), crop.export(87), fitToBox(img, 480, 150)]);
-      const [logoSquare, iconId, logoId] = await Promise.all([this.upload(square, 'logo-square'), this.upload(icon, 'icon'), this.upload(wide, 'logo')]);
-      this.generated.emit({ logoSquare, icon: iconId, logo: logoId });
+      const [square, icon, wide, googleWide] = await Promise.all([
+        crop.export(660),
+        crop.export(87),
+        fitToBox(img, 480, 150),
+        fitToBox(img, 1280, 400),
+      ]);
+      const [logoSquare, iconId, logoId, wideLogo] = await Promise.all([
+        this.upload(square, 'logo-square'),
+        this.upload(icon, 'icon'),
+        this.upload(wide, 'logo'),
+        this.upload(googleWide, 'wide-logo'),
+      ]);
+      this.generated.emit({ logoSquare, icon: iconId, logo: logoId, wideLogo });
       const color = dominantColor(img);
       if (color) this.logoColor.emit(color);
       this.logo.set(null);
-      toast.success('Logo assets generated', { description: 'Google logo, Apple icon and Apple logo.' });
+      toast.success('Logo assets generated', { description: 'Google logo and wide logo, Apple icon and Apple logo.' });
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {

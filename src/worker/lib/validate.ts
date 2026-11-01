@@ -32,7 +32,7 @@ export class ValidationError extends Error {}
 
 const KINDS: PassKind[] = ['loyalty', 'generic'];
 const FORMATS: BarcodeFormat[] = ['QR', 'PDF417', 'AZTEC', 'CODE128'];
-const SLOTS: ImageSlot[] = ['icon', 'logo', 'logoSquare', 'strip', 'hero', 'background'];
+const SLOTS: ImageSlot[] = ['icon', 'logo', 'logoSquare', 'wideLogo', 'strip', 'hero', 'background'];
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 const str = (v: unknown, max = 500): string => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -92,7 +92,11 @@ export function parseTemplateInput(body: unknown): TemplateInput {
     },
     images: Object.fromEntries(SLOTS.filter((s) => typeof images[s] === 'string' && images[s]).map((s) => [s, str(images[s], 64)])),
     barcode: { format, message: str(barcode.message, 500), altText: str(barcode.altText, 100) || undefined },
-    google: { programName: str(google.programName, 120) || undefined, issuerName: str(google.issuerName, 120) || undefined },
+    google: compact({
+      programName: str(google.programName, 120) || undefined,
+      issuerName: str(google.issuerName, 120) || undefined,
+      wideLogo: google.wideLogo === true || undefined,
+    }),
     nfc,
     locations,
     actions,
@@ -272,6 +276,7 @@ function parseSecurity(v: unknown): SecuritySettings {
     // Por defecto se permiten capturas.
     screenshots: s.screenshots !== false,
     deviceSharing,
+    restrictToEmail: s.restrictToEmail === true,
     noSharing: s.noSharing === true,
     noStripShine: s.noStripShine === true,
   });
@@ -324,7 +329,17 @@ export function parsePassInput(body: unknown): PassInput {
   if (!templateId) throw new ValidationError('Template is required');
   const holderName = str(b.holderName, 200).trim();
   if (!holderName) throw new ValidationError('Holder name is required');
-  return { templateId, holderName, data: parseData(b.data) };
+  return compact({ templateId, holderName, data: parseData(b.data), email: parseEmail(b.email) });
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Email del titular; vacío = sin email. */
+export function parseEmail(v: unknown): string | undefined {
+  const e = str(v, 254).trim().toLowerCase();
+  if (!e) return undefined;
+  if (!EMAIL.test(e)) throw new ValidationError('Invalid email');
+  return e;
 }
 
 export function parseData(v: unknown): Record<string, string> {

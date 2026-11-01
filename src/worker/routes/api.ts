@@ -8,7 +8,7 @@ import { getAccessToken, getResource, objectId, objectResource, saveLink } from 
 import { Store } from '../lib/store';
 import { sendNotification } from '../lib/notifications';
 import { publishTemplate, syncPass, type Ctx } from '../lib/sync';
-import { parseData, parseNotificationInput, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
+import { parseData, parseEmail, parseNotificationInput, parsePassInput, parseTemplateInput, ValidationError } from '../lib/validate';
 import type { AppleSettings, GoogleSettings, ImageSlot, OtpVerifyResult, Pass, SettingsStatus, Template } from '../types';
 import { accessGuard } from '../middleware/access';
 
@@ -223,7 +223,8 @@ api.put('/passes/:serial', async (c) => {
   const s = store(c);
   const pass = await s.getPass(c.req.param('serial'));
   if (!pass) return c.json({ error: 'Not found' }, 404);
-  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean; notify?: boolean }>();
+  const body = await c.req.json<{ holderName?: string; data?: unknown; voided?: boolean; notify?: boolean; email?: string }>();
+  if ('email' in body) pass.email = parseEmail(body.email);
   if (body.holderName !== undefined) {
     const name = text(body.holderName);
     if (!name) throw new ValidationError('Holder name is required');

@@ -67,7 +67,7 @@ describe('Google OTP', () => {
 });
 
 describe('seguridad y visualización', () => {
-  const security = { googleShimmer: true, unlockToView: true, screenshots: false, deviceSharing: 'ONE_USER_ONE_DEVICE' as const, noSharing: true, noStripShine: true };
+  const security = { googleShimmer: true, unlockToView: true, screenshots: false, deviceSharing: 'ONE_USER_ONE_DEVICE' as const, restrictToEmail: true, noSharing: true, noStripShine: true };
 
   it('Google: animación, desbloqueo y dispositivos en la class; capturas en el object', () => {
     const t = makeTemplate({ security });
@@ -87,5 +87,21 @@ describe('seguridad y visualización', () => {
     expect(json).toMatchObject({ sharingProhibited: true, suppressStripShine: true });
     const plain = buildPassJson(makeTemplate(), pass, appleSettings(), 'https://x.dev');
     expect(plain).not.toHaveProperty('sharingProhibited');
+  });
+});
+
+describe('email y logo ancho', () => {
+  it('Google: saveRestrictions con el hash del email y logo ancho opcional', async () => {
+    const { emailSha256 } = await import('../src/worker/lib/sync');
+    const hash = await emailSha256(' Example@Example.com ');
+    expect(hash).toBe('31c5543c1734d25c7206f5fd591525d0295bec6fe84ff82f946a34fe970a1e66');
+    const t = makeTemplate({ security: { googleShimmer: false, unlockToView: false, screenshots: true, restrictToEmail: true, noSharing: false, noStripShine: false } });
+    expect(buildObject(t, pass, '338', {}, undefined, hash)).toMatchObject({ saveRestrictions: { restrictToEmailSha256: hash } });
+    expect(buildObject(makeTemplate(), pass, '338', {}, undefined, hash)).not.toHaveProperty('saveRestrictions');
+
+    const wide = makeTemplate({ google: { programName: 'P', wideLogo: true } });
+    expect(buildClass(wide, '338', { wideLogo: 'https://x/w.png' })).toMatchObject({ wideProgramLogo: { sourceUri: { uri: 'https://x/w.png' } } });
+    expect(buildObject({ ...wide, kind: 'generic' }, pass, '338', { wideLogo: 'https://x/w.png' })).toMatchObject({ wideLogo: { sourceUri: { uri: 'https://x/w.png' } } });
+    expect(buildClass(makeTemplate(), '338', { wideLogo: 'https://x/w.png' })).not.toHaveProperty('wideProgramLogo');
   });
 });

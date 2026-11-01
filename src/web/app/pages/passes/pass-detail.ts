@@ -73,6 +73,10 @@ import { PassPreview } from '../../shared/pass-preview';
                 <label hlmLabel for="holder">Holder name</label>
                 <input hlmInput id="holder" name="holder" required [(ngModel)]="holderName" />
               </div>
+              <div class="flex flex-col gap-2">
+                <label hlmLabel for="email">Holder email</label>
+                <input hlmInput id="email" name="email" type="email" [(ngModel)]="email" />
+              </div>
               @for (k of keys(); track k) {
                 <div class="flex flex-col gap-2">
                   <label hlmLabel [for]="'data-' + k">{{ k }}</label>
@@ -198,6 +202,7 @@ export class PassDetail implements OnInit {
   protected readonly template = signal<Template | null>(null);
   protected readonly busy = signal(false);
   protected holderName = '';
+  protected email = '';
   protected data: Record<string, string> = {};
   protected voided = false;
   protected notify = false;
@@ -223,6 +228,7 @@ export class PassDetail implements OnInit {
   private apply(p: Pass) {
     this.pass.set(p);
     this.holderName = p.holderName;
+    this.email = p.email ?? '';
     this.data = { ...p.data };
     this.voided = p.voided;
   }
@@ -232,6 +238,7 @@ export class PassDetail implements OnInit {
     try {
       const res = await this.api.updatePass(this.serial(), {
         holderName: this.holderName,
+        email: this.email.trim(),
         data: this.data,
         voided: this.voided,
         notify: this.notify,

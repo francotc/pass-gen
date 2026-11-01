@@ -2,6 +2,10 @@ import type { Env } from '../env';
 import type { AppleSettings, GoogleSettings, Pass, SyncResult, Template } from '../types';
 import { pushUpdate } from './apple/apns';
 import { passOtp } from './otp';
+import { sha256Hex } from './crypto';
+
+/** Google: SHA-256 en hex del email en minúsculas (saveRestrictions). */
+export const emailSha256 = (email: string) => sha256Hex(new TextEncoder().encode(email.trim().toLowerCase()));
 import {
   buildClass,
   buildObject,
@@ -27,6 +31,7 @@ export function imageUrls(t: Template, origin: string): ImageUrls {
   return {
     // Google muestra el logo en un círculo: preferir el recorte cuadrado.
     logo: url(t.images.logoSquare ?? t.images.logo ?? t.images.icon),
+    wideLogo: url(t.images.wideLogo ?? t.images.logo),
     hero: url(t.images.hero ?? t.images.strip),
     background: url(t.images.background),
     byId: url,
@@ -35,7 +40,7 @@ export function imageUrls(t: Template, origin: string): ImageUrls {
 
 async function googleUpsertObject(ctx: Ctx, token: string, gs: GoogleSettings, t: Template, p: Pass, notify = false) {
   const otp = await passOtp(ctx.env.ENCRYPTION_KEY, t, p.serial);
-  const obj = buildObject(t, p, gs.issuerId, imageUrls(t, ctx.origin), otp);
+  const obj = buildObject(t, p, gs.issuerId, imageUrls(t, ctx.origin), otp, p.email ? await emailSha256(p.email) : undefined);
   // Notificación de cambio de campo (saldo, nivel); el flag es efímero y solo existe en loyalty.
   if (notify && t.kind === 'loyalty') obj.notifyPreference = 'NOTIFY_ON_UPDATE';
   await upsert(token, objectResource(t.kind), obj);

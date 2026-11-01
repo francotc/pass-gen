@@ -29,6 +29,11 @@ export async function sha1Hex(bytes: Uint8Array): Promise<string> {
   return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function randomToken(bytes = 24): string {
   return b64url(crypto.getRandomValues(new Uint8Array(bytes)));
 }

@@ -56,6 +56,7 @@ export async function getAccessToken(sa: GoogleSettings): Promise<string> {
 
 export interface ImageUrls {
   logo?: string;
+  wideLogo?: string;
   hero?: string;
   background?: string;
   /** URL pública de una imagen subida (vacío fuera de HTTPS). */
@@ -83,6 +84,7 @@ export function buildClass(t: Template, issuerId: string, images: ImageUrls): Re
       issuerName: t.google.issuerName || t.organizationName,
       programName: t.google.programName || t.name,
       programLogo: image(images.logo, t.organizationName),
+      wideProgramLogo: t.google.wideLogo ? image(images.wideLogo, t.organizationName) : undefined,
       hexBackgroundColor: t.colors.background,
       reviewStatus: 'UNDER_REVIEW',
     }),
@@ -95,7 +97,7 @@ function textModules(fields: Field[], vars: Record<string, string>) {
     .filter((m) => m.body);
 }
 
-export function buildObject(t: Template, p: Pass, issuerId: string, images: ImageUrls, otp?: PassOtp): Record<string, unknown> {
+export function buildObject(t: Template, p: Pass, issuerId: string, images: ImageUrls, otp?: PassOtp, emailSha256?: string): Record<string, unknown> {
   const vars = passVars(p);
   const [lead, ...rest] = [...t.headerFields, ...t.primaryFields];
   const others = [...rest, ...t.secondaryFields, ...t.auxiliaryFields, ...t.backFields];
@@ -117,6 +119,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
 
   Object.assign(common, actionModules(t, vars, images));
   if (t.security && !t.security.screenshots) Object.assign(common, { passConstraints: { screenshotEligibility: 'INELIGIBLE' } });
+  if (t.security?.restrictToEmail && emailSha256) Object.assign(common, { saveRestrictions: { restrictToEmailSha256: emailSha256 } });
   if (otp) {
     // El teléfono genera el TOTP; sin barcode estático para que una captura no sirva.
     delete (common as Record<string, unknown>).barcode;
@@ -151,6 +154,7 @@ export function buildObject(t: Template, p: Pass, issuerId: string, images: Imag
           header: localized(lead ? render(lead.value, vars) : p.holderName),
           subheader: lead ? localized(render(lead.label, vars)) : undefined,
           logo: image(images.logo, t.organizationName),
+          wideLogo: t.google.wideLogo ? image(images.wideLogo, t.organizationName) : undefined,
           textModulesData: textModules(lead ? others : [...rest, ...others], vars),
         };
   return JSON.parse(JSON.stringify(obj));

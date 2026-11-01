@@ -3,7 +3,7 @@
 export type PassKind = 'loyalty' | 'generic';
 export type BarcodeFormat = 'QR' | 'PDF417' | 'AZTEC' | 'CODE128';
 export type FieldSection = 'headerFields' | 'primaryFields' | 'secondaryFields' | 'auxiliaryFields' | 'backFields';
-export type ImageSlot = 'icon' | 'logo' | 'logoSquare' | 'strip' | 'hero' | 'background';
+export type ImageSlot = 'icon' | 'logo' | 'logoSquare' | 'wideLogo' | 'strip' | 'hero' | 'background';
 
 export const FIELD_SECTIONS: FieldSection[] = [
   'headerFields',
@@ -199,6 +199,8 @@ export interface SecuritySettings {
   screenshots: boolean;
   /** Google: quién y en cuántos dispositivos se puede guardar. Vacío = valor por defecto de Google. */
   deviceSharing?: DeviceSharing;
+  /** Google: solo se puede guardar con el email del titular (saveRestrictions; requiere habilitarlo con soporte de Google). */
+  restrictToEmail: boolean;
   /** Apple: impide compartir el pase (sharingProhibited). */
   noSharing: boolean;
   /** Apple: quita el brillo que Wallet aplica sobre el strip (suppressStripShine). */
@@ -220,7 +222,8 @@ export interface Template {
   secondaryFields: Field[];
   auxiliaryFields: Field[];
   backFields: Field[];
-  google: { programName?: string; issuerName?: string };
+  /** wideLogo: Google muestra el logo ancho en lugar del logo redondo + emisor. */
+  google: { programName?: string; issuerName?: string; wideLogo?: boolean };
   nfc: NfcSettings;
   locations: LocationSettings;
   actions: ActionSettings;
@@ -246,6 +249,8 @@ export interface Pass {
   google: { objectId?: string; synced: boolean; error?: string };
   /** Último mensaje enviado; en Apple se muestra como un campo del pase. */
   message?: PassMessage;
+  /** Email del titular (para la restricción de guardado de Google). */
+  email?: string;
 }
 
 /** Mensaje ya renderizado para un pase (placeholders resueltos). */
@@ -263,6 +268,7 @@ export interface PassInput {
   templateId: string;
   holderName: string;
   data: Record<string, string>;
+  email?: string;
 }
 
 export interface OtpVerifyResult {

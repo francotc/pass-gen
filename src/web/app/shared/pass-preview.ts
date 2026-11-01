@@ -88,12 +88,16 @@ interface RenderedField {
           [style.color]="googleText()"
         >
           <div class="flex items-center gap-2 p-4">
-            <span class="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/90">
-              @if (googleLogo()) {
-                <img [src]="googleLogo()" alt="" class="size-full object-cover" />
-              }
-            </span>
-            <span class="truncate text-sm">{{ t().google.issuerName || t().organizationName }}</span>
+            @if (googleWideLogo(); as wide) {
+              <img [src]="wide" alt="" class="h-8 max-w-48 object-contain object-left" />
+            } @else {
+              <span class="inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/90">
+                @if (googleLogo()) {
+                  <img [src]="googleLogo()" alt="" class="size-full object-cover" />
+                }
+              </span>
+              <span class="truncate text-sm">{{ t().google.issuerName || t().organizationName }}</span>
+            }
             @if (nfcEnabled()) {
               <ng-icon name="lucideNfc" class="ml-auto shrink-0" aria-label="Smart Tap enabled" />
             }
@@ -253,6 +257,9 @@ export class PassPreview {
   }
   protected logo() {
     return this.img(this.t().images.logo ?? this.t().images.icon);
+  }
+  protected googleWideLogo() {
+    return this.t().google.wideLogo ? this.img(this.t().images.wideLogo ?? this.t().images.logo) : undefined;
   }
   protected googleLogo() {
     return this.img(this.t().images.logoSquare ?? this.t().images.logo ?? this.t().images.icon);

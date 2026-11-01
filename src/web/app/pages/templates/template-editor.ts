@@ -186,6 +186,15 @@ interface ImageSlotInfo {
             </div>
             <div hlmCardContent class="flex flex-col gap-5">
               <app-image-studio [kind]="draft.kind" [poster]="draft.background.poster" (generated)="applyGenerated($event)" (logoColor)="onLogoColor($event)" />
+              <label class="flex items-center justify-between gap-3 text-sm" for="wideLogo">
+                <span>
+                  <span class="font-medium">Use the wide logo on Google</span>
+                  <span class="text-muted-foreground block text-xs">
+                    Replaces the round logo and issuer name at the top of the Google card. Best for wordmark logos.
+                  </span>
+                </span>
+                <hlm-switch inputId="wideLogo" name="wideLogo" [(ngModel)]="draft.google.wideLogo" />
+              </label>
               <details class="group">
                 <summary class="text-muted-foreground hover:text-foreground cursor-pointer text-sm">
                   Generated images ({{ imageCount() }}) · replace one individually
@@ -747,10 +756,19 @@ export class TemplateEditor implements OnInit {
   ];
   protected readonly locating = signal(false);
   protected readonly brandFields = BRAND_FIELDS.filter((f) => f !== 'altText');
-  protected readonly securityToggles: { key: 'googleShimmer' | 'unlockToView' | 'screenshots' | 'noSharing' | 'noStripShine'; label: string; hint: string }[] = [
+  protected readonly securityToggles: {
+    key: 'googleShimmer' | 'unlockToView' | 'screenshots' | 'restrictToEmail' | 'noSharing' | 'noStripShine';
+    label: string;
+    hint: string;
+  }[] = [
     { key: 'googleShimmer', label: 'Security shimmer (Google)', hint: 'Animated foil glow on the pass details: a live pass is easy to tell from a screenshot.' },
     { key: 'unlockToView', label: 'Require unlock to view (Google)', hint: 'The phone must be unlocked to open the pass.' },
     { key: 'screenshots', label: 'Allow screenshots (Google)', hint: 'Turn off to block screenshots of the pass.' },
+    {
+      key: 'restrictToEmail',
+      label: 'Only the holder\'s email can save it (Google)',
+      hint: 'Uses the pass email. Google asks issuers to contact their support before enabling save restrictions.',
+    },
     { key: 'noSharing', label: 'Prevent sharing (Apple)', hint: 'Hides the share option in Wallet (sharingProhibited).' },
     { key: 'noStripShine', label: 'Remove strip shine (Apple)', hint: 'Turns off the glossy effect Wallet adds over the strip image.' },
   ];
@@ -782,6 +800,7 @@ export class TemplateEditor implements OnInit {
       { slot: 'icon', label: 'Icon', hint: 'Notifications and lock screen (Apple), 87×87' },
       { slot: 'logo', label: 'Logo (Apple)', hint: 'Top-left, max 480×150' },
       { slot: 'logoSquare', label: 'Square logo (Google)', hint: 'Shown as a circle, 660×660' },
+      { slot: 'wideLogo', label: 'Wide logo (Google)', hint: 'Up to 1280×400, optional' },
     ];
     if (this.draft.kind === 'loyalty') slots.push({ slot: 'strip', label: 'Strip (Apple)', hint: '1125×432, behind the primary fields' });
     slots.push({ slot: 'hero', label: 'Hero (Google)', hint: '1032×336, at the bottom of the card' });
