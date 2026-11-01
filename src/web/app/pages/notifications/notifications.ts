@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -16,6 +16,10 @@ import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import { render } from '../../../../worker/lib/render';
 import type { AppleMessagePlacement, NotificationInput, NotificationResult } from '../../../../worker/types';
 import { Api, errorMessage, type NotificationSummary, type PassSummary, type TemplateSummary } from '../../core/api.service';
+import { LANGUAGES } from '../../core/translations';
+import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { PageHeader } from '../../shared/page-header';
+import { PlatformChip } from '../../shared/platform-chip';
 
 interface Draft {
   targetType: 'pass' | 'template';
@@ -58,16 +62,23 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
     HlmSwitchImports,
     HlmTableImports,
     HlmTextareaImports,
+    PageHeader,
+    ConfirmDialog,
+    PlatformChip,
   ],
   providers: [provideIcons({ lucideBellRing, lucideLanguages, lucidePlus, lucideSend, lucideTrash2 })],
   template: `
-    <header class="mb-6 flex flex-col gap-1">
-      <h1 class="text-2xl font-semibold tracking-tight">Notifications</h1>
-      <p class="text-muted-foreground text-sm">Send a message to pass holders in Apple Wallet and Google Wallet.</p>
-    </header>
+    <app-page-header title="Notifications" description="Send a message to pass holders in Apple Wallet and Google Wallet." />
+    <app-confirm
+      #sendConfirm
+      [title]="'Send to ' + recipientCount() + ' pass' + (recipientCount() === 1 ? '' : 'es') + '?'"
+      [description]="confirmText()"
+      confirmLabel="Send notification"
+      (confirmed)="send()"
+    />
 
     <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
-      <form class="flex min-w-0 flex-col gap-6" (ngSubmit)="send()">
+      <form class="flex min-w-0 flex-col gap-6" (ngSubmit)="askSend()">
         <section hlmCard>
           <div hlmCardHeader>
             <h2 hlmCardTitle>Recipients</h2>
@@ -83,7 +94,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
             @if (d.targetType === 'pass') {
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="serial">Pass</label>
-                <select hlmInput id="serial" name="serial" required [(ngModel)]="d.serial">
+                <select hlmInput id="serial" name="serial" required [(ngModel)]="d.serial" (ngModelChange)="loadTemplate()">
                   <option value="" disabled>Choose a pass</option>
                   @for (p of passes(); track p.serial) {
                     <option [value]="p.serial">{{ p.holderName }} · {{ p.serial }}</option>
@@ -93,7 +104,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
             } @else {
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="template">Template</label>
-                <select hlmInput id="template" name="template" required [(ngModel)]="d.templateId">
+                <select hlmInput id="template" name="template" required [(ngModel)]="d.templateId" (ngModelChange)="loadTemplate()">
                   <option value="" disabled>Choose a template</option>
                   @for (t of templates(); track t.id) {
                     <option [value]="t.id">{{ t.name }} ({{ activeCount(t.id) }} active)</option>
@@ -137,12 +148,20 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
 
             <div class="flex flex-col gap-3">
               <div class="flex items-center justify-between gap-2">
-                <span class="flex items-center gap-2 text-sm font-medium"><ng-icon name="lucideLanguages" /> Translations (Google)</span>
+                <span class="flex items-center gap-2 text-sm font-medium"><ng-icon name="lucideLanguages" /> Translations <app-platform p="both" /></span>
                 <button hlmBtn variant="outline" size="sm" type="button" (click)="addTranslation()"><ng-icon name="lucidePlus" /> Add language</button>
               </div>
+              <datalist id="notif-langs">
+                @for (l of languages; track l.code) {
+                  <option [value]="l.code">{{ l.name }}</option>
+                }
+              </datalist>
+              @if (!d.translations.length) {
+                <p class="text-muted-foreground text-[13px] leading-snug">Optional. Each phone shows the version in its language.</p>
+              }
               @for (tr of d.translations; track $index; let i = $index) {
                 <div class="border-border grid gap-2 rounded-md border p-3 sm:grid-cols-[6rem_1fr_auto]">
-                  <input hlmInput aria-label="Language tag" placeholder="es" [name]="'tr-lang-' + i" [(ngModel)]="tr.language" />
+                  <input hlmInput aria-label="Language code" placeholder="es" list="notif-langs" [name]="'tr-lang-' + i" [(ngModel)]="tr.language" />
                   <input hlmInput aria-label="Translated header" placeholder="Header" [name]="'tr-header-' + i" [(ngModel)]="tr.header" />
                   <button hlmBtn variant="ghost" size="icon" type="button" aria-label="Remove translation" (click)="d.translations.splice(i, 1)">
                     <ng-icon name="lucideTrash2" />
@@ -212,7 +231,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
                 <span>
                   <span class="font-medium">Push notification</span>
                   <span class="text-muted-foreground block text-[13px] leading-snug">
-                    TEXT_AND_NOTIFY. Google allows 3 notifications per pass every 24 hours; off sends a silent message (TEXT).
+                    Google allows 3 pushes per pass every 24 hours. Off adds the message silently.
                   </span>
                 </span>
                 <hlm-switch inputId="googleNotify" name="googleNotify" [(ngModel)]="d.google.notify" />
@@ -229,17 +248,22 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="displayStart">Show from (optional)</label>
                 <input hlmInput id="displayStart" name="displayStart" type="datetime-local" [(ngModel)]="d.google.displayStart" />
+                <p class="text-muted-foreground text-[13px]">{{ d.google.displayStart ? (d.google.displayStart | date: 'dd.MM.yyyy HH:mm') + ', your time' : 'Right away' }}</p>
               </div>
               <div class="flex flex-col gap-2">
                 <label hlmLabel for="displayEnd">Show until (optional)</label>
                 <input hlmInput id="displayEnd" name="displayEnd" type="datetime-local" [(ngModel)]="d.google.displayEnd" />
+                <p class="text-muted-foreground text-[13px]">{{ d.google.displayEnd ? (d.google.displayEnd | date: 'dd.MM.yyyy HH:mm') + ', your time' : 'Until replaced' }}</p>
               </div>
             </div>
           }
         </section>
 
-        <div>
-          <button hlmBtn type="submit" [disabled]="busy()"><ng-icon name="lucideSend" /> {{ busy() ? 'Sending…' : 'Send notification' }}</button>
+        <div class="flex flex-col gap-2">
+          <button hlmBtn type="submit" class="w-fit" [disabled]="busy() || !!blocker()"><ng-icon name="lucideSend" /> {{ busy() ? 'Sending…' : 'Send notification' }}</button>
+          @if (blocker(); as b) {
+            <p class="text-muted-foreground text-[13px]">{{ b }}</p>
+          }
         </div>
       </form>
 
@@ -249,11 +273,15 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
           <figure class="flex flex-col gap-2">
             <figcaption class="text-muted-foreground text-[13px] leading-snug">iPhone lock screen</figcaption>
             <div class="flex items-start gap-3 rounded-2xl bg-neutral-200/70 p-3 backdrop-blur dark:bg-neutral-800/70">
-              <span class="bg-primary text-primary-foreground inline-flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <ng-icon name="lucideBellRing" />
-              </span>
+              @if (tpl()?.logo; as logo) {
+                <img [src]="'/public/images/' + logo" alt="" class="size-9 shrink-0 rounded-lg object-cover" />
+              } @else {
+                <span class="bg-primary text-primary-foreground inline-flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <ng-icon name="lucideBellRing" />
+                </span>
+              }
               <div class="min-w-0 text-sm">
-                <div class="font-semibold">Wallet</div>
+                <div class="flex justify-between gap-2"><span class="truncate font-semibold">{{ tpl()?.org || 'Wallet' }}</span><span class="text-muted-foreground text-xs">now</span></div>
                 <div class="break-words">{{ appleText() || '…' }}</div>
               </div>
             </div>
@@ -263,6 +291,9 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
           <figure class="flex flex-col gap-2">
             <figcaption class="text-muted-foreground text-[13px] leading-snug">Google Wallet message</figcaption>
             <div class="border-border rounded-2xl border p-4 text-sm">
+              @if (tpl()) {
+                <div class="text-muted-foreground mb-2 text-xs">{{ tpl()!.org }}</div>
+              }
               <div class="font-medium">{{ r(d.header) || 'Header' }}</div>
               <div class="text-muted-foreground mt-1 break-words whitespace-pre-line">{{ r(d.body) || 'Message' }}{{ d.link ? '\n' + d.link : '' }}</div>
               @if (d.google.notify) {
@@ -274,7 +305,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
       </aside>
     </div>
 
-    <section class="mt-10 flex max-w-5xl flex-col gap-3">
+    <section class="mt-10 flex flex-col gap-3">
       <h2 class="text-lg font-semibold tracking-tight">History</h2>
       @if (!history().length) {
         <p class="text-muted-foreground text-sm">No notifications sent yet.</p>
@@ -294,7 +325,7 @@ const toIso = (local: string) => (local ? new Date(local).toISOString() : undefi
               @for (n of history(); track n.id) {
                 <tr hlmTr>
                   <td hlmTd class="text-muted-foreground whitespace-nowrap">{{ n.createdAt | date: 'dd.MM.yyyy HH:mm' }}</td>
-                  <td hlmTd class="max-w-64 truncate font-medium">{{ n.header }}</td>
+                  <td hlmTd class="max-w-64 truncate font-medium" [title]="n.header">{{ historyHeader(n) }}</td>
                   <td hlmTd>{{ targetLabel(n) }} · {{ n.passes }} pass(es)</td>
                   <td hlmTd class="whitespace-nowrap">
                     @if (n.apple) {
@@ -329,6 +360,54 @@ export class Notifications implements OnInit {
   protected readonly templates = signal<TemplateSummary[]>([]);
   protected readonly history = signal<NotificationSummary[]>([]);
   protected readonly busy = signal(false);
+  protected readonly languages = LANGUAGES;
+  private readonly sendConfirm = viewChild.required<ConfirmDialog>('sendConfirm');
+  /** Nombre del negocio y logo del pase elegido, para la vista previa. */
+  protected readonly tpl = signal<{ id: string; org: string; logo?: string } | null>(null);
+
+  protected recipientCount() {
+    return this.d.targetType === 'pass' ? (this.d.serial ? 1 : 0) : this.activeCount(this.d.templateId);
+  }
+
+  protected confirmText() {
+    const ch = [this.d.apple.enabled ? 'Apple Wallet' : '', this.d.google.enabled ? (this.d.google.notify ? 'Google Wallet (with push)' : 'Google Wallet (silent)') : '']
+      .filter(Boolean)
+      .join(' and ');
+    return `“${this.r(this.d.header)}” goes to ${ch}. This can't be undone.`;
+  }
+
+  /** Motivo por el que todavía no se puede enviar (o vacío). */
+  protected blocker() {
+    const d = this.d;
+    if (d.targetType === 'pass' && !d.serial) return 'Choose a pass.';
+    if (d.targetType === 'template' && !d.templateId) return 'Choose a template.';
+    if (d.targetType === 'template' && !this.activeCount(d.templateId)) return 'This template has no active passes.';
+    if (!d.header.trim() || !d.body.trim()) return 'Write a header and a message.';
+    if (!d.apple.enabled && !d.google.enabled) return 'Turn on Apple Wallet or Google Wallet.';
+    return '';
+  }
+
+  protected askSend() {
+    if (!this.blocker()) this.sendConfirm().open();
+  }
+
+  /** Encabezado del historial con los datos del titular cuando se conocen; si no, los placeholders como ‹clave›. */
+  protected historyHeader(n: NotificationSummary) {
+    const p = n.target.type === 'pass' ? this.allPasses.find((x) => x.serial === (n.target as { serial: string }).serial) : undefined;
+    const vars: Record<string, string> = p ? { holderName: p.holderName, serial: p.serial } : {};
+    return render(n.header, vars, true).replace(/\{\{\s*([\w.-]+)\s*\}\}/g, '‹$1›');
+  }
+
+  private allPasses: PassSummary[] = [];
+
+  /** Carga la plantilla del destinatario para mostrar su nombre y logo en la vista previa. */
+  protected async loadTemplate() {
+    const id = this.d.targetType === 'pass' ? this.passes().find((p) => p.serial === this.d.serial)?.templateId : this.d.templateId;
+    if (!id) return this.tpl.set(null);
+    if (this.tpl()?.id === id) return;
+    const t = await this.api.template(id).catch(() => null);
+    this.tpl.set(t ? { id, org: t.organizationName, logo: t.images.logoSquare ?? t.images.icon ?? t.images.logo } : null);
+  }
 
   async ngOnInit() {
     const q = this.route.snapshot.queryParamMap;
@@ -339,7 +418,9 @@ export class Notifications implements OnInit {
     }
     try {
       const [passes, templates, history] = await Promise.all([this.api.passes(), this.api.templates(), this.api.notifications()]);
+      this.allPasses = passes;
       this.passes.set(passes.filter((p) => !p.voided).sort((a, b) => a.holderName.localeCompare(b.holderName)));
+      void this.loadTemplate();
       this.templates.set(templates);
       this.history.set(history.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
     } catch (e) {
@@ -349,6 +430,7 @@ export class Notifications implements OnInit {
 
   protected onTargetType() {
     if (this.d.targetType === 'pass') this.d.google.scope = 'object';
+    void this.loadTemplate();
   }
 
   protected activeCount(templateId: string) {
@@ -378,7 +460,7 @@ export class Notifications implements OnInit {
 
   protected targetLabel(n: NotificationSummary) {
     const t = n.target;
-    if (t.type === 'pass') return this.passes().find((p) => p.serial === t.serial)?.holderName ?? t.serial;
+    if (t.type === 'pass') return this.allPasses.find((p) => p.serial === t.serial)?.holderName ?? t.serial;
     return this.templates().find((x) => x.id === t.templateId)?.name ?? 'Template';
   }
 
