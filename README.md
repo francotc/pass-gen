@@ -204,7 +204,7 @@ Probar el cron en local: `npx wrangler dev --test-scheduled` y `curl "http://loc
 
 `/public/p/{serial}/{token}` (botón *Holder page* en el detalle del pase): un solo link para ambas wallets. Muestra el botón de Apple en iPhone, el de Google en Android y los dos más un QR en computadora; avisa si el pase está anulado. Está bajo `/public/*`, así que usa el mismo bypass de Access.
 
-El badge oficial de Apple está en `src/web/public/public/badges/add-to-apple-wallet.svg`. Para Google, descargá el SVG oficial de las [brand guidelines de Google Wallet](https://developers.google.com/wallet/generic/resources/brand-guidelines) y guardalo como `src/web/public/public/badges/add-to-google-wallet.svg`; mientras no exista se muestra un botón de texto.
+Los badges oficiales están en `src/web/public/public/badges/`: `add-to-apple-wallet.svg` y `add-to-google-wallet.svg` (botón oficial de Google Wallet en inglés, del pack de las [brand guidelines](https://developers.google.com/wallet/generic/resources/brand-guidelines)). Si se borra el de Google, la página muestra un botón de texto.
 
 ## Fondo a pantalla completa y botones
 
